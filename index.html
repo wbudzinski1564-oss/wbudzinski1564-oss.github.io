@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncing Dot Game Template</title>
+    <style>
+        /* Reset default browser margins and padding */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Make the canvas fill the whole screen dynamically */
+        canvas {
+            display: block;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // Set up the canvas context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Function to handle responsive window resizing
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Set initial size
+
+        // Dot properties
+        const dot = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 20,
+            dx: 4,  // Horizontal speed/direction
+            dy: 4,  // Vertical speed/direction
+            color: '#000000'
+        };
+
+        // Main game animation loop
+        function updateAnimation() {
+            // 1. Clear the screen to maintain a clean white background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Draw the black dot
+            ctx.beginPath();
+            ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
+            ctx.fillStyle = dot.color;
+            ctx.fill();
+            ctx.closePath();
+
+            // 3. Update the positions
+            dot.x += dot.dx;
+            dot.y += dot.dy;
+
+            // 4. Wall collision checking (Left & Right walls)
+            if (dot.x + dot.radius > canvas.width || dot.x - dot.radius < 0) {
+                dot.dx = -dot.dx; // Reverse horizontal direction
+                // Snap to boundary to prevent getting stuck
+                if (dot.x + dot.radius > canvas.width) dot.x = canvas.width - dot.radius;
+                if (dot.x - dot.radius < 0) dot.x = dot.radius;
+            }
+
+            // 5. Wall collision checking (Top & Bottom walls)
+            if (dot.y + dot.radius > canvas.height || dot.y - dot.radius < 0) {
+                dot.dy = -dot.dy; // Reverse vertical direction
+                // Snap to boundary to prevent getting stuck
+                if (dot.y + dot.radius > canvas.height) dot.y = canvas.height - dot.radius;
+                if (dot.y - dot.radius < 0) dot.y = dot.radius;
+            }
+
+            // Keep requesting frames to animate smoothly
+            requestAnimationFrame(updateAnimation);
+        }
+
+        // Initialize the game loop
+        requestAnimationFrame(updateAnimation);
+    </script>
+</body>
+</html>
