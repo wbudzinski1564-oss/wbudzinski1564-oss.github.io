@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dry Fire</title>
     <style>
-        /* Force total viewport coverage and remove scrollbars */
+        /* Strip out all browser paddings and margins */
         html, body {
             margin: 0;
             padding: 0;
@@ -14,6 +14,8 @@
             overflow: hidden;
             background-color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
         /* Lock canvas directly to viewport edges */
@@ -23,11 +25,11 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            display: none; /* Hidden until play button is pressed */
+            display: none; 
         }
 
         /* Centralized Main Menu Overlay */
-        #mainMenu {
+        #mainMenu, #gameOverMenu {
             position: absolute;
             top: 0;
             left: 0;
@@ -39,6 +41,10 @@
             align-items: center;
             background-color: #ffffff;
             z-index: 10;
+        }
+
+        #gameOverMenu {
+            display: none;
         }
 
         h1 {
@@ -67,15 +73,75 @@
             background-color: #ffffff;
             color: #000000;
         }
+
+        /* Retro HUD Timer Placement */
+        #timerHUD {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #000000;
+            font-family: monospace;
+            z-index: 5;
+            display: none;
+        }
+
+        /* Landscape Orientation Warning Box */
+        #orientationWarning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ffffff;
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #orientationWarning p {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #000000;
+            margin-top: 15px;
+        }
+
+        /* Detect if phone is held in portrait mode */
+        @media (orientation: portrait) {
+            #orientationWarning {
+                display: flex;
+            }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Orientation Alert screen for smartphones -->
+    <div id="orientationWarning">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>
+        <p>Please rotate your device sideways to play!</p>
+    </div>
 
     <!-- Main Menu Layout -->
     <div id="mainMenu">
         <h1>Dry Fire</h1>
         <button class="play-btn" onclick="startGame()">Play</button>
     </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverMenu">
+        <h1>Time's Up!</h1>
+        <button class="play-btn" onclick="returnToMenu()">Main Menu</button>
+    </div>
+
+    <!-- Gameplay HUD -->
+    <div id="timerHUD">1:00</div>
 
     <!-- Full Screen Animation Canvas -->
     <canvas id="gameCanvas"></canvas>
@@ -84,6 +150,18 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const mainMenu = document.getElementById('mainMenu');
+        const gameOverMenu = document.getElementById('gameOverMenu');
+        const timerHUD = document.getElementById('timerHUD');
+
+        let animationFrameId;
+        let countdownInterval;
+        let timeLeft = 60;
+
+        // Dot Properties
+        let radius = 15;
+        let x, y;
+        let dx = 2; 
+        let dy = 2; 
 
         // Dynamic viewport resize calculator
         function resizeCanvas() {
@@ -92,19 +170,13 @@
         }
         window.addEventListener('resize', resizeCanvas);
 
-        // Dot Properties
-        let radius = 15;
-        let x, y;
-        let dx = 2; 
-        let dy = 2; 
-
         // Main Rendering Loop
         function animate() {
             // Draw clear white frame
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw the black dot
+            // Draw the black target dot
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fillStyle = '#000000';
@@ -123,24 +195,64 @@
             x += dx;
             y += dy;
 
-            requestAnimationFrame(animate);
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // Timer Execution Loop
+        function startTimer() {
+            timeLeft = 60;
+            updateTimerDisplay();
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            // Pad single digits with leading zero
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+            timerHUD.textContent = `${minutes}:${seconds}`;
         }
 
         // Triggered when clicking the Play button
         function startGame() {
-            // 1. Hide the main menu overlay
             mainMenu.style.display = 'none';
+            gameOverMenu.style.display = 'none';
             
-            // 2. Unhide and size the canvas
             canvas.style.display = 'block';
+            timerHUD.style.display = 'block';
             resizeCanvas();
 
-            // 3. Set starting dot coordinates to the screen center
+            // Start coordinates in the precise middle of landscape display
             x = canvas.width / 2;
             y = canvas.height / 2;
 
-            // 4. Start engine loop
+            // Run structural loops
+            startTimer();
             animate();
+        }
+
+        // Terminates training sequence when clock reaches 0:00
+        function endGame() {
+            clearInterval(countdownInterval);
+            cancelAnimationFrame(animationFrameId);
+            
+            canvas.style.display = 'none';
+            timerHUD.style.display = 'none';
+            gameOverMenu.style.display = 'flex';
+        }
+
+        // Navigates back to the title screen card
+        function returnToMenu() {
+            gameOverMenu.style.display = 'none';
+            mainMenu.style.display = 'flex';
         }
     </script>
 </body>
