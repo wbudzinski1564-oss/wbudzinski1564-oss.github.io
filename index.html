@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Dry Fire</title>
     <style>
-        /* Force edge-to-edge canvas space */
         html, body {
             margin: 0;
             padding: 0;
@@ -19,7 +18,6 @@
             touch-action: none;
         }
         
-        /* Fixed display scaling layout */
         canvas {
             position: absolute;
             top: 0;
@@ -31,7 +29,6 @@
             image-rendering: pixelated;
         }
 
-        /* Menu Interface Layout cards */
         #mainMenu, #gameOverMenu {
             position: absolute;
             top: 0;
@@ -71,7 +68,6 @@
             letter-spacing: 1px;
         }
 
-        /* Top HUD Timer Placement */
         #timerHUD {
             position: absolute;
             top: 20px;
@@ -84,7 +80,6 @@
             display: none;
         }
 
-        /* Responsive Mobile Sideways Instruction Lockout */
         #orientationWarning {
             display: none;
             position: fixed;
@@ -109,7 +104,6 @@
             margin-top: 15px;
         }
 
-        /* Display prompt if phone viewport turns upright vertical */
         @media (orientation: portrait) {
             #orientationWarning {
                 display: flex;
@@ -147,18 +141,15 @@
         let animationFrameId;
         let countdownInterval;
         let timeLeft = 60;
-        let gameState = 'menu'; // 'menu', 'phase1', 'phase2', 'gameover'
+        let gameState = 'menu';
 
-        // Target Configuration: 11.5mm diameter translates to a precise 21.73 pixel radius
         const radius = 21.73;
         const diameter = radius * 2;
         let x, y;
         
-        // Slower movement speed configuration
         let dx = 0.8; 
         let dy = 0.8; 
 
-        // Phase 2 State Variables
         let activeDotIndex = 0;
 
         function resizeCanvas() {
@@ -177,23 +168,19 @@
             setTimeout(resizeCanvas, 150); 
         });
 
-        // Core Rendering and Update Loop
         function animate() {
             if (gameState !== 'phase1' && gameState !== 'phase2') return;
 
-            // Clear framework screen cleanly
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             if (gameState === 'phase1') {
-                // PHASE 1: Render moving target dot
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-                // Wall bounce physics vectors
                 if (x + dx > canvas.width - radius || x + dx < radius) {
                     dx = -dx;
                 }
@@ -205,14 +192,11 @@
                 y += dy;
 
             } else if (gameState === 'phase2') {
-                // PHASE 2: 5 horizontal dots with 1-dot-width spacing between them
-                // Total width calculation: 5 diameters + 4 diameter spacings = 9 diameters total
                 const totalGridWidth = diameter * 9;
                 const startX = (canvas.width - totalGridWidth) / 2 + radius;
                 const centerY = canvas.height / 2;
 
                 for (let i = 0; i < 5; i++) {
-                    // Spacing step calculation: Move by 2 diameters per index position
                     const dotX = startX + (i * diameter * 2);
 
                     ctx.beginPath();
@@ -233,7 +217,6 @@
             animationFrameId = requestAnimationFrame(animate);
         }
 
-        // Central Countdown Management Clock
         function startTimer() {
             updateTimerDisplay();
             
@@ -241,7 +224,6 @@
                 timeLeft--;
                 updateTimerDisplay();
 
-                // Phase 2 Target update rule: choose a new random index every 5 seconds
                 if (gameState === 'phase2' && timeLeft % 5 === 0 && timeLeft > 0) {
                     chooseRandomDot();
                 }
@@ -265,7 +247,6 @@
 
         function chooseRandomDot() {
             let nextIndex;
-            // Prevent picking the exact same target back-to-back
             do {
                 nextIndex = Math.floor(Math.random() * 5);
             } while (nextIndex === activeDotIndex);
@@ -284,7 +265,6 @@
             
             resizeCanvas();
 
-            // Setup moving dot initial positions
             x = window.innerWidth / 2;
             y = window.innerHeight / 2;
 
@@ -294,9 +274,9 @@
 
         function switchToPhase2() {
             gameState = 'phase2';
-            timeLeft = 60; // Reset countdown for Phase 2 sequence
+            timeLeft = 60; 
             updateTimerDisplay();
-            chooseRandomDot(); // Select first active blinking dot target layout
+            chooseRandomDot(); 
         }
 
         function endGame() {
@@ -314,3 +294,6 @@
             gameOverMenu.style.display = 'none';
             mainMenu.style.display = 'flex';
         }
+    </script>
+</body>
+</html>
