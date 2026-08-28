@@ -130,7 +130,7 @@
     </div>
 
     <div id="gameOverMenu">
-        <h1>Time's Up!</h1>
+        <h1>Drill Complete!</h1>
         <button class="play-btn" onclick="returnToMenu()">Main Menu</button>
     </div>
 
@@ -147,22 +147,25 @@
         let animationFrameId;
         let countdownInterval;
         let timeLeft = 60;
-        let isPlaying = false;
+        let gameState = 'menu'; // 'menu', 'phase1', 'phase2', 'gameover'
 
         // Target Configuration: 11.5mm diameter translates to a precise 21.73 pixel radius
         const radius = 21.73;
+        const diameter = radius * 2;
         let x, y;
         
-        // Slower movement speed
+        // Slower movement speed configuration
         let dx = 0.8; 
         let dy = 0.8; 
 
-        // Fixes screen-boundary calculations on mobile scale updates
+        // Phase 2 State Variables
+        let activeDotIndex = 0;
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             
-            if (isPlaying) {
+            if (gameState === 'phase1') {
                 if (x > canvas.width - radius) x = canvas.width - radius;
                 if (x < radius) x = radius;
                 if (y > canvas.height - radius) y = canvas.height - radius;
@@ -170,52 +173,85 @@
             }
         }
         
-        // Listen to window size changes and orientation switches
         window.addEventListener('resize', () => {
             setTimeout(resizeCanvas, 150); 
         });
 
-        // Core Physics loop
+        // Core Rendering and Update Loop
         function animate() {
-            if (!isPlaying) return;
+            if (gameState !== 'phase1' && gameState !== 'phase2') return;
 
-            // Clear frame
+            // Clear framework screen cleanly
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Render 11.5mm circular target
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#000000';
-            ctx.fill();
-            ctx.closePath();
+            if (gameState === 'phase1') {
+                // PHASE 1: Render moving target dot
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
 
-            // Right/Left wall bounce
-            if (x + dx > canvas.width - radius || x + dx < radius) {
-                dx = -dx;
-            }
-            // Top/Bottom wall bounce
-            if (y + dy > canvas.height - radius || y + dy < radius) {
-                dy = -dy;
-            }
+                // Wall bounce physics vectors
+                if (x + dx > canvas.width - radius || x + dx < radius) {
+                    dx = -dx;
+                }
+                if (y + dy > canvas.height - radius || y + dy < radius) {
+                    dy = -dy;
+                }
 
-            // Move the dot
-            x += dx;
-            y += dy;
+                x += dx;
+                y += dy;
+
+            } else if (gameState === 'phase2') {
+                // PHASE 2: 5 horizontal dots with 1-dot-width spacing between them
+                // Total width calculation: 5 diameters + 4 diameter spacings = 9 diameters total
+                const totalGridWidth = diameter * 9;
+                const startX = (canvas.width - totalGridWidth) / 2 + radius;
+                const centerY = canvas.height / 2;
+
+                for (let i = 0; i < 5; i++) {
+                    // Spacing step calculation: Move by 2 diameters per index position
+                    const dotX = startX + (i * diameter * 2);
+
+                    ctx.beginPath();
+                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
+                    
+                    if (i === activeDotIndex) {
+                        ctx.fillStyle = '#000000';
+                        ctx.fill();
+                    } else {
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    ctx.closePath();
+                }
+            }
 
             animationFrameId = requestAnimationFrame(animate);
         }
 
+        // Central Countdown Management Clock
         function startTimer() {
-            timeLeft = 60;
             updateTimerDisplay();
             
             countdownInterval = setInterval(() => {
                 timeLeft--;
                 updateTimerDisplay();
 
+                // Phase 2 Target update rule: choose a new random index every 5 seconds
+                if (gameState === 'phase2' && timeLeft % 5 === 0 && timeLeft > 0) {
+                    chooseRandomDot();
+                }
+
                 if (timeLeft <= 0) {
-                    endGame();
+                    if (gameState === 'phase1') {
+                        switchToPhase2();
+                    } else if (gameState === 'phase2') {
+                        endGame();
+                    }
                 }
             }, 1000);
         }
@@ -227,28 +263,28 @@
             timerHUD.textContent = `${minutes}:${seconds}`;
         }
 
-        // Triggered when clicking Play
-        function startGame() {
-            isPlaying = true;
+        function chooseRandomDot() {
+            let nextIndex;
+            // Prevent picking the exact same target back-to-back
+            do {
+                nextIndex = Math.floor(Math.random() * 5);
+            } while (nextIndex === activeDotIndex);
+            
+            activeDotIndex = nextIndex;
+        }
 
-            // Request Fullscreen Mode from the mobile browser
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log("Fullscreen request blocked or not supported:", err);
-                });
-            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari support */
-                document.documentElement.webkitRequestFullscreen();
-            }
+        function startGame() {
+            gameState = 'phase1';
+            timeLeft = 60;
 
             mainMenu.style.display = 'none';
             gameOverMenu.style.display = 'none';
-            
             canvas.style.display = 'block';
             timerHUD.style.display = 'block';
             
             resizeCanvas();
 
-            // Spawn target dead-center
+            // Setup moving dot initial positions
             x = window.innerWidth / 2;
             y = window.innerHeight / 2;
 
@@ -256,29 +292,25 @@
             animate();
         }
 
+        function switchToPhase2() {
+            gameState = 'phase2';
+            timeLeft = 60; // Reset countdown for Phase 2 sequence
+            updateTimerDisplay();
+            chooseRandomDot(); // Select first active blinking dot target layout
+        }
+
         function endGame() {
-            isPlaying = false;
+            gameState = 'gameover';
             clearInterval(countdownInterval);
             cancelAnimationFrame(animationFrameId);
             
-            // Exit Fullscreen Mode automatically
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                }
-            }
-
             canvas.style.display = 'none';
             timerHUD.style.display = 'none';
             gameOverMenu.style.display = 'flex';
         }
 
         function returnToMenu() {
+            gameState = 'menu';
             gameOverMenu.style.display = 'none';
             mainMenu.style.display = 'flex';
         }
-    </script>
-</body>
-</html>
