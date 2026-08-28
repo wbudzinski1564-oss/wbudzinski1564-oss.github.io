@@ -29,7 +29,7 @@
             image-rendering: pixelated;
         }
 
-        #mainMenu, #gameOverMenu {
+        #mainMenu, #workoutMenu, #countdownScreen, #gameOverMenu {
             position: absolute;
             top: 0;
             left: 0;
@@ -43,14 +43,14 @@
             z-index: 10;
         }
 
-        #gameOverMenu {
+        #workoutMenu, #countdownScreen, #gameOverMenu {
             display: none;
         }
 
         h1 {
             font-size: 3rem;
             color: #000000;
-            margin-bottom: 2rem;
+            margin: 0 0 2rem 0;
             letter-spacing: 2px;
             text-transform: uppercase;
         }
@@ -66,6 +66,48 @@
             cursor: pointer;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+
+        .workout-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            width: 85%;
+            max-width: 900px;
+        }
+
+        .workout-btn {
+            padding: 20px 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #000000;
+            background-color: #ffffff;
+            border: 3px solid #000000;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.15s ease;
+        }
+
+        .workout-btn:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        #countdownScreen h2 {
+            font-size: 2.2rem;
+            color: #000000;
+            margin: 0 0 1rem 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #countdownNumber {
+            font-size: 5rem;
+            font-weight: bold;
+            color: #000000;
+            font-family: monospace;
         }
 
         #timerHUD {
@@ -120,33 +162,55 @@
 
     <div id="mainMenu">
         <h1>Dry Fire</h1>
-        <button class="play-btn" onclick="startGame()">Play</button>
+        <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
+    </div>
+
+    <div id="workoutMenu">
+        <h1>Select Workout</h1>
+        <div class="workout-grid">
+            <button class="workout-btn" onclick="startSetupSequence('A')">Workout A</button>
+            <button class="workout-btn" onclick="startSetupSequence('B')">Workout B</button>
+            <button class="workout-btn" onclick="startSetupSequence('C')">Workout C</button>
+            <button class="workout-btn" onclick="startSetupSequence('D')">Workout D</button>
+            <button class="workout-btn" onclick="startSetupSequence('E')">Workout E</button>
+            <button class="workout-btn" onclick="startSetupSequence('F')">Workout F</button>
+            <button class="workout-btn" onclick="startSetupSequence('G')">Workout G</button>
+            <button class="workout-btn" onclick="startSetupSequence('H')">Workout H</button>
+        </div>
+    </div>
+
+    <div id="countdownScreen">
+        <h2>Distance: 5 Meters</h2>
+        <div id="countdownNumber">5</div>
     </div>
 
     <div id="gameOverMenu">
         <h1>Drill Complete!</h1>
-        <button class="play-btn" onclick="returnToMenu()">Main Menu</button>
+        <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
     </div>
 
     <div id="timerHUD">1:00</div>
     <canvas id="gameCanvas"></canvas>
-
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        
         const mainMenu = document.getElementById('mainMenu');
+        const workoutMenu = document.getElementById('workoutMenu');
+        const countdownScreen = document.getElementById('countdownScreen');
+        const countdownNumber = document.getElementById('countdownNumber');
         const gameOverMenu = document.getElementById('gameOverMenu');
         const timerHUD = document.getElementById('timerHUD');
 
         let animationFrameId;
         let countdownInterval;
+        let setupInterval;
         let timeLeft = 60;
         let gameState = 'menu';
 
         const radius = 21.73;
         const diameter = radius * 2;
         let x, y;
-        
         let dx = 0.8; 
         let dy = 0.8; 
 
@@ -198,7 +262,6 @@
 
                 for (let i = 0; i < 5; i++) {
                     const dotX = startX + (i * diameter * 2);
-
                     ctx.beginPath();
                     ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
                     
@@ -217,9 +280,51 @@
             animationFrameId = requestAnimationFrame(animate);
         }
 
+        function showWorkoutMenu() {
+            gameState = 'workouts';
+            mainMenu.style.display = 'none';
+            workoutMenu.style.display = 'flex';
+        }
+
+        function startSetupSequence(workoutType) {
+            gameState = 'setup';
+            workoutMenu.style.display = 'none';
+            countdownScreen.style.display = 'flex';
+
+            let setupTimeLeft = 5;
+            countdownNumber.textContent = setupTimeLeft;
+
+            setupInterval = setInterval(() => {
+                setupTimeLeft--;
+                countdownNumber.textContent = setupTimeLeft;
+
+                if (setupTimeLeft <= 0) {
+                    clearInterval(setupInterval);
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            gameState = 'phase1';
+            timeLeft = 60;
+
+            countdownScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            timerHUD.style.display = 'block';
+
+            resizeCanvas();
+
+            x = window.innerWidth / 2;
+            y = window.innerHeight / 2;
+
+            startTimer();
+            animate();
+        }
+
         function startTimer() {
             updateTimerDisplay();
-            
+
             countdownInterval = setInterval(() => {
                 timeLeft--;
                 updateTimerDisplay();
@@ -250,49 +355,30 @@
             do {
                 nextIndex = Math.floor(Math.random() * 5);
             } while (nextIndex === activeDotIndex);
-            
             activeDotIndex = nextIndex;
-        }
-
-        function startGame() {
-            gameState = 'phase1';
-            timeLeft = 60;
-
-            mainMenu.style.display = 'none';
-            gameOverMenu.style.display = 'none';
-            canvas.style.display = 'block';
-            timerHUD.style.display = 'block';
-            
-            resizeCanvas();
-
-            x = window.innerWidth / 2;
-            y = window.innerHeight / 2;
-
-            startTimer();
-            animate();
         }
 
         function switchToPhase2() {
             gameState = 'phase2';
-            timeLeft = 60; 
+            timeLeft = 60;
             updateTimerDisplay();
-            chooseRandomDot(); 
+            chooseRandomDot();
         }
 
         function endGame() {
             gameState = 'gameover';
             clearInterval(countdownInterval);
             cancelAnimationFrame(animationFrameId);
-            
+
             canvas.style.display = 'none';
             timerHUD.style.display = 'none';
             gameOverMenu.style.display = 'flex';
         }
 
-        function returnToMenu() {
-            gameState = 'menu';
+        function returnToWorkouts() {
+            gameState = 'workouts';
             gameOverMenu.style.display = 'none';
-            mainMenu.style.display = 'flex';
+            workoutMenu.style.display = 'flex';
         }
     </script>
 </body>
