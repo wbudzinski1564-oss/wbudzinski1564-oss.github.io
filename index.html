@@ -308,6 +308,8 @@
         let dx = 0.8; 
         let dy = 0.8; 
 
+        let activeDotIndex = 0;
+
         const workoutProfiles = {
             'prone_a': [
                 { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
@@ -321,16 +323,16 @@
             ],
             'prone_c': [
                 { name: 'Prone Hold', duration: 180, type: 'stationary_line_bottom', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' },
+                { name: '5-Across (Prone)', duration: 180, type: 'grid_5_static', setupName: '5-across (prone)' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'prone_d': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' },
+                { name: 'Prone Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'prone hold: 3 min' },
+                { name: '5-Across (Prone)', duration: 180, type: 'grid_5_static', setupName: '5-across (prone)' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_a': [
-                { name: 'Standing Hold', duration: 180, type: 'stationary', setupName: 'standing hold: 3 min' },
+                { name: 'Standing Hold', duration: 180, type: 'mixed_standing_hold_a', setupName: 'standing hold: 3 min' },
                 { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
@@ -341,12 +343,12 @@
             ],
             'standing_c': [
                 { name: 'Standing Hold', duration: 180, type: 'stationary_line_sides', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
+                { name: '5-Across (Standing)', duration: 180, type: 'grid_5_static', setupName: '5-across (standing)' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_d': [
-                { name: 'Standing Hold', duration: 180, type: 'moving', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
+                { name: 'Standing Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'standing hold: 3 min' },
+                { name: '5-Across (Standing)', duration: 180, type: 'grid_5_static', setupName: '5-across (standing)' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ]
         };
@@ -371,19 +373,22 @@
             const currentStages = workoutProfiles[currentWorkout];
             const stage = currentStages ? currentStages[workoutStageIndex] : null;
             
-            if (gameState === 'active' && stage && stage.type === 'moving') {
-                // Bounds tightly constrained vertically and horizontally to prevent target overlapping the enlarged text elements
-                const topTextMargin = 120 * selectedDistanceFactor; 
-                if (x > canvas.width - radius - borderPaddingX) x = canvas.width - radius - borderPaddingX;
-                if (x < radius + borderPaddingX) x = radius + borderPaddingX;
+            if (gameState === 'active' && stage && (stage.type === 'moving' || (stage.type === 'mixed_standing_hold_a' && timeLeft <= 60))) {
+                const textSafetyOffset = 130 * selectedDistanceFactor;
+                const rightPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
+                const leftPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
+                
+                if (x > canvas.width - radius - rightPaddingLimit) x = canvas.width - radius - rightPaddingLimit;
+                if (x < radius + leftPaddingLimit) x = radius + leftPaddingLimit;
                 if (y > canvas.height - radius) y = canvas.height - radius;
-                if (y < radius + topTextMargin) y = radius + topTextMargin;
+                if (y < radius + textSafetyOffset) y = radius + textSafetyOffset;
             }
         }
         
         window.addEventListener('resize', () => {
             setTimeout(resizeCanvas, 150); 
         });
+
         function animate() {
             if (gameState !== 'active') return;
 
@@ -395,7 +400,7 @@
 
             if (!stage) return;
 
-            if (stage.type === 'stationary') {
+            if (stage.type === 'stationary' || (stage.type === 'mixed_standing_hold_a' && timeLeft > 60)) {
                 ctx.beginPath();
                 ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
@@ -403,32 +408,31 @@
                 ctx.closePath();
 
             } else if (stage.type === 'stationary_line_bottom') {
-                // Core black target circle
                 ctx.beginPath();
                 ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-                // Extension line spanning exactly 3 diameters below target bottom edge, thickness matching 1 target radius
+                // Width is 0.3x target diameter. Starts from center of target. Extends 3 diameters below target center point.
+                const lineWidth = diameter * 0.3;
                 ctx.fillStyle = '#000000';
-                ctx.fillRect((canvas.width / 2) - (radius / 2), (canvas.height / 2) + radius, radius, diameter * 3);
+                ctx.fillRect((canvas.width / 2) - (lineWidth / 2), canvas.height / 2, lineWidth, diameter * 3);
 
             } else if (stage.type === 'stationary_line_sides') {
-                // Core black target circle
                 ctx.beginPath();
                 ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-                // Extension lines extending out from both left and right edges matching radius width and 3 target diameters in length
+                // Width is 0.3x target diameter. Starts from center. Extends 3 diameters horizontally on both sides.
+                const lineHeight = diameter * 0.3;
                 ctx.fillStyle = '#000000';
-                ctx.fillRect((canvas.width / 2) - radius - (diameter * 3), (canvas.height / 2) - (radius / 2), diameter * 3, radius);
-                ctx.fillRect((canvas.width / 2) + radius, (canvas.height / 2) - (radius / 2), diameter * 3, radius);
+                ctx.fillRect((canvas.width / 2) - (diameter * 3), (canvas.height / 2) - (lineHeight / 2), diameter * 3, lineHeight);
+                ctx.fillRect(canvas.width / 2, (canvas.height / 2) - (lineHeight / 2), diameter * 3, lineHeight);
 
             } else if (stage.type === 'grid_5_static') {
-                // Renders 5 static solid black circular targets side-by-side
                 const totalGridWidth = diameter * 9;
                 const startX = (canvas.width - totalGridWidth) / 2 + radius;
                 const centerY = canvas.height / 2;
@@ -442,18 +446,42 @@
                     ctx.closePath();
                 }
 
-            } else if (stage.type === 'moving') {
+            } else if (stage.type === 'grid_5s_blinking') {
+                const totalGridWidth = diameter * 9;
+                const startX = (canvas.width - totalGridWidth) / 2 + radius;
+                const centerY = canvas.height / 2;
+
+                for (let i = 0; i < 5; i++) {
+                    const dotX = startX + (i * diameter * 2);
+                    ctx.beginPath();
+                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
+                    
+                    if (i === activeDotIndex) {
+                        ctx.fillStyle = '#000000';
+                        ctx.fill();
+                    } else {
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    ctx.closePath();
+                }
+
+            } else if (stage.type === 'moving' || (stage.type === 'mixed_standing_hold_a' && timeLeft <= 60)) {
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-                const topTextMargin = 120 * selectedDistanceFactor;
-                if (x + dx > canvas.width - radius - borderPaddingX || x + dx < radius + borderPaddingX) {
+                const textSafetyOffset = 130 * selectedDistanceFactor;
+                const rightPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
+                const leftPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
+
+                if (x + dx > canvas.width - radius - rightPaddingLimit || x + dx < radius + leftPaddingLimit) {
                     dx = -dx;
                 }
-                if (y + dy > canvas.height - radius || y + dy < radius + topTextMargin) {
+                if (y + dy > canvas.height - radius || y + dy < radius + textSafetyOffset) {
                     dy = -dy;
                 }
 
@@ -548,8 +576,12 @@
             resizeCanvas();
 
             x = canvas.width / 2;
-            const topTextMargin = 120 * selectedDistanceFactor;
-            y = (canvas.height / 2) + (topTextMargin / 2);
+            const textSafetyOffset = 130 * selectedDistanceFactor;
+            y = (canvas.height / 2) + (textSafetyOffset / 2);
+
+            if (stage.type === 'grid_5s_blinking') {
+                chooseRandomDot();
+            }
 
             startTimer();
             animate();
@@ -562,12 +594,18 @@
                 timeLeft--;
                 updateTimerDisplay();
 
+                const currentStages = workoutProfiles[currentWorkout];
+                const stage = currentStages ? currentStages[workoutStageIndex] : null;
+
+                if (stage && stage.type === 'grid_5s_blinking' && timeLeft % 5 === 0 && timeLeft > 0) {
+                    chooseRandomDot();
+                }
+
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
                     cancelAnimationFrame(animationFrameId);
                     
                     workoutStageIndex++;
-                    const currentStages = workoutProfiles[currentWorkout];
                     if (currentStages && workoutStageIndex < currentStages.length) {
                         startSetupBetweenStages();
                     } else {
@@ -582,6 +620,14 @@
             let seconds = timeLeft % 60;
             seconds = seconds < 10 ? '0' + seconds : seconds;
             timerHUD.textContent = `${minutes}:${seconds}`;
+        }
+
+        function chooseRandomDot() {
+            let nextIndex;
+            do {
+                nextIndex = Math.floor(Math.random() * 5);
+            } while (nextIndex === activeDotIndex);
+            activeDotIndex = nextIndex;
         }
 
         function endGame() {
