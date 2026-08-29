@@ -50,9 +50,18 @@
         h1 {
             font-size: 3rem;
             color: #000000;
-            margin: 0 0 2rem 0;
+            margin: 0 0 1rem 0;
             letter-spacing: 2px;
             text-transform: uppercase;
+        }
+
+        #menuDistance {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #666666;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .play-btn {
@@ -135,19 +144,6 @@
             display: none;
         }
 
-        #distanceHUD {
-            position: absolute;
-            bottom: 20px;
-            left: 30px;
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: #666666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            z-index: 5;
-            display: none;
-        }
-
         #orientationWarning {
             display: none;
             position: fixed;
@@ -188,25 +184,26 @@
 
     <div id="mainMenu">
         <h1>Dry Fire</h1>
+        <div id="menuDistance">Distance: 5 Meters</div>
         <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
     </div>
 
     <div id="workoutMenu">
         <h1>Select Workout</h1>
         <div class="workout-grid">
-            <button class="workout-btn" onclick="startSetupSequence('A')">Workout A</button>
-            <button class="workout-btn" onclick="startSetupSequence('B')">Workout B</button>
-            <button class="workout-btn" onclick="startSetupSequence('C')">Workout C</button>
-            <button class="workout-btn" onclick="startSetupSequence('D')">Workout D</button>
-            <button class="workout-btn" onclick="startSetupSequence('E')">Workout E</button>
-            <button class="workout-btn" onclick="startSetupSequence('F')">Workout F</button>
-            <button class="workout-btn" onclick="startSetupSequence('G')">Workout G</button>
-            <button class="workout-btn" onclick="startSetupSequence('H')">Workout H</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_a')">Prone A</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_b')">Prone B</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_c')">Prone C</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_d')">Prone D</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_a')">Standing A</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_b')">Standing B</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_c')">Standing C</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_d')">Standing D</button>
         </div>
     </div>
 
     <div id="countdownScreen">
-        <h2 id="countdownHeader">Distance: 5 Meters</h2>
+        <h2 id="countdownHeader">Setup</h2>
         <div id="countdownNumber">5</div>
     </div>
 
@@ -217,7 +214,6 @@
 
     <div id="stageHUD">Prone Hold</div>
     <div id="timerHUD">1:00</div>
-    <div id="distanceHUD">Distance: 5 Meters</div>
     <canvas id="gameCanvas"></canvas>
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -231,14 +227,13 @@
         const gameOverMenu = document.getElementById('gameOverMenu');
         const timerHUD = document.getElementById('timerHUD');
         const stageHUD = document.getElementById('stageHUD');
-        const distanceHUD = document.getElementById('distanceHUD');
 
         let animationFrameId;
         let countdownInterval;
         let setupInterval;
         let timeLeft = 60;
         let gameState = 'menu';
-        let currentWorkout = 'A';
+        let currentWorkout = 'prone_a';
         let workoutStageIndex = 0;
 
         const radius = 21.73;
@@ -251,15 +246,14 @@
         let activeDotIndex = 0;
 
         const workoutProfiles = {
-            'A': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary' },
-                { name: 'Standing Hold', duration: 180, type: 'mixed_stationary_first_minute' },
-                { name: 'Prone 1-Shots', duration: 180, type: 'stationary' },
-                { name: '16 Clip Changes', duration: 60, type: 'stationary' }
+            'prone_a': [
+                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
+                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots setup' },
+                { name: '16 Clip Changes', duration: 60, type: 'stationary', setupName: '16 clip changes setup' }
             ],
             'default': [
-                { name: 'Phase 1', duration: 60, type: 'moving' },
-                { name: 'Phase 2', duration: 60, type: 'grid_5s' }
+                { name: 'Phase 1', duration: 60, type: 'moving', setupName: 'Phase 1 setup' },
+                { name: 'Phase 2', duration: 60, type: 'grid_5s', setupName: 'Phase 2 setup' }
             ]
         };
 
@@ -270,7 +264,7 @@
             const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
             const stage = currentStages[workoutStageIndex];
             
-            if (gameState === 'active' && stage && (stage.type === 'moving' || (stage.type === 'mixed_stationary_first_minute' && timeLeft <= 120))) {
+            if (gameState === 'active' && stage && stage.type === 'moving') {
                 if (x > canvas.width - radius - borderPaddingX) x = canvas.width - radius - borderPaddingX;
                 if (x < radius + borderPaddingX) x = radius + borderPaddingX;
                 if (y > canvas.height - radius) y = canvas.height - radius;
@@ -293,14 +287,14 @@
 
             if (!stage) return;
 
-            if (stage.type === 'stationary' || (stage.type === 'mixed_stationary_first_minute' && timeLeft > 120)) {
+            if (stage.type === 'stationary') {
                 ctx.beginPath();
                 ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-            } else if (stage.type === 'moving' || (stage.type === 'mixed_stationary_first_minute' && timeLeft <= 120)) {
+            } else if (stage.type === 'moving') {
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
@@ -355,11 +349,9 @@
             workoutMenu.style.display = 'none';
             countdownScreen.style.display = 'flex';
 
-            if (currentWorkout === 'A') {
-                countdownHeader.textContent = "prone hold: 3 min";
-            } else {
-                countdownHeader.textContent = "Distance: 5 Meters";
-            }
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+            countdownHeader.textContent = stage.setupName || "Setup";
 
             let setupTimeLeft = 5;
             countdownNumber.textContent = setupTimeLeft;
@@ -380,17 +372,11 @@
             canvas.style.display = 'none';
             timerHUD.style.display = 'none';
             stageHUD.style.display = 'none';
-            distanceHUD.style.display = 'none';
             countdownScreen.style.display = 'flex';
 
             const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
             const nextStage = currentStages[workoutStageIndex];
-
-            if (currentWorkout === 'A' && nextStage.name === 'Prone 1-Shots') {
-                countdownHeader.textContent = "prone 1-shots setup";
-            } else {
-                countdownHeader.textContent = nextStage.name + " setup";
-            }
+            countdownHeader.textContent = nextStage.setupName || "Setup";
 
             let setupTimeLeft = 5;
             countdownNumber.textContent = setupTimeLeft;
@@ -412,7 +398,6 @@
             canvas.style.display = 'block';
             timerHUD.style.display = 'block';
             stageHUD.style.display = 'block';
-            distanceHUD.style.display = 'block';
 
             const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
             const stage = currentStages[workoutStageIndex];
@@ -481,7 +466,6 @@
             canvas.style.display = 'none';
             timerHUD.style.display = 'none';
             stageHUD.style.display = 'none';
-            distanceHUD.style.display = 'none';
             gameOverMenu.style.display = 'flex';
         }
 
