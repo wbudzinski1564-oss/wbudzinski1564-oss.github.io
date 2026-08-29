@@ -2,178 +2,507 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic Volume Color Flash</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dry Fire</title>
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; 
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+        }
+
+        #mainMenu, #workoutMenu, #countdownScreen, #gameOverMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            background-color: #121212;
-            color: #ffffff;
-            transition: background-color 0.1s ease;
+            background-color: #ffffff;
+            z-index: 10;
         }
-        .controls-card {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
+
+        #workoutMenu, #countdownScreen, #gameOverMenu {
+            display: none;
         }
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 20px;
-            transition: background-color 0.2s;
+
+        h1 {
+            font-size: 3rem;
+            color: #000000;
+            margin: 0 0 1rem 0;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .slider-container {
-            margin: 20px 0;
-        }
-        input[type="range"] {
-            width: 100%;
-            margin: 10px 0;
-        }
-        .metrics {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #ccc;
-        }
-        .highlight {
+
+        #menuDistance {
+            font-size: 1.25rem;
             font-weight: bold;
-            color: #007bff;
+            color: #666666;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .play-btn {
+            padding: 15px 40px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #000000;
+            border: 2px solid #000000;
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .workout-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            width: 85%;
+            max-width: 900px;
+        }
+
+        .workout-btn {
+            padding: 20px 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #000000;
+            background-color: #ffffff;
+            border: 3px solid #000000;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.15s ease;
+        }
+
+        .workout-btn:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        #countdownScreen h2 {
+            font-size: 2.2rem;
+            color: #000000;
+            margin: 0 0 1rem 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #countdownNumber {
+            font-size: 5rem;
+            font-weight: bold;
+            color: #000000;
+            font-family: monospace;
+        }
+
+        /* Doubled HUD text size during gameplay */
+        #timerHUD {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #000000;
+            font-family: monospace;
+            z-index: 5;
+            display: none;
+        }
+
+        /* Doubled HUD text size during gameplay */
+        #stageHUD {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-size: 3rem;
+            font-weight: bold;
+            color: #000000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 5;
+            display: none;
+        }
+
+        /* Huge center text overlay for special workout stages */
+        #centerTextHUD {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            font-weight: bold;
+            color: #000000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            z-index: 4;
+            display: none;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        #orientationWarning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #orientationWarning p {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #000000;
+            margin-top: 15px;
+        }
+
+        @media (orientation: portrait) {
+            #orientationWarning {
+                display: flex;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="controls-card">
-        <h2>Mic Color Trigger</h2>
-        <button id="startButton">Start Microphone</button>
-        
-        <div class="slider-container">
-            <label for="thresholdSlider">Volume Threshold: <span id="thresholdVal" class="highlight">-40</span> dB</label>
-            <input type="range" id="thresholdSlider" min="-100" max="0" value="-40" step="1">
-        </div>
+    <div id="orientationWarning">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>
+        <p>Please rotate your device sideways to play!</p>
+    </div>
 
-        <div class="metrics">
-            <p>Current Mic Volume: <span id="currentVolume">-100</span> dB</p>
+    <div id="mainMenu">
+        <h1>Dry Fire</h1>
+        <div id="menuDistance">Distance: 5 Meters</div>
+        <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
+    </div>
+
+    <div id="workoutMenu">
+        <h1>Select Workout</h1>
+        <div class="workout-grid">
+            <button class="workout-btn" onclick="startSetupSequence('prone_a')">Prone A</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_b')">Prone B</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_c')">Prone C</button>
+            <button class="workout-btn" onclick="startSetupSequence('prone_d')">Prone D</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_a')">Standing A</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_b')">Standing B</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_c')">Standing C</button>
+            <button class="workout-btn" onclick="startSetupSequence('standing_d')">Standing D</button>
         </div>
     </div>
 
+    <div id="countdownScreen">
+        <h2 id="countdownHeader">Setup</h2>
+        <div id="countdownNumber">5</div>
+    </div>
+
+    <div id="gameOverMenu">
+        <h1>Drill Complete!</h1>
+        <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
+    </div>
+
+    <div id="stageHUD">Prone Hold</div>
+    <div id="timerHUD">1:00</div>
+    <div id="centerTextHUD">16 Clip Changes</div>
+    <canvas id="gameCanvas"></canvas>
     <script>
-        const startButton = document.getElementById('startButton');
-        const thresholdSlider = document.getElementById('thresholdSlider');
-        const thresholdVal = document.getElementById('thresholdVal');
-        const currentVolumeLabel = document.getElementById('currentVolume');
-        const body = document.body;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const mainMenu = document.getElementById('mainMenu');
+        const workoutMenu = document.getElementById('workoutMenu');
+        const countdownScreen = document.getElementById('countdownScreen');
+        const countdownHeader = document.getElementById('countdownHeader');
+        const countdownNumber = document.getElementById('countdownNumber');
+        const gameOverMenu = document.getElementById('gameOverMenu');
+        const timerHUD = document.getElementById('timerHUD');
+        const stageHUD = document.getElementById('stageHUD');
+        const centerTextHUD = document.getElementById('centerTextHUD');
 
-        let audioContext;
-        let analyser;
-        let microphone;
-        let javascriptNode;
-        let isFlashing = false;
-        let flashTimeout;
+        let animationFrameId;
+        let countdownInterval;
+        let setupInterval;
+        let timeLeft = 60;
+        let gameState = 'menu';
+        let currentWorkout = 'prone_a';
+        let workoutStageIndex = 0;
 
-        // Colors to cycle through on each flash
-        const flashColors = ['#ff0055', '#00ffcc', '#ffcc00', '#9900ff', '#00ff66'];
+        const radius = 21.73;
+        const diameter = radius * 2;
+        const borderPaddingX = 96; 
+        let x, y;
+        let dx = 0.8; 
+        let dy = 0.8; 
 
-        thresholdSlider.addEventListener('input', (e) => {
-            thresholdVal.textContent = e.target.value;
+        let activeDotIndex = 0;
+
+        const workoutProfiles = {
+            'prone_a': [
+                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
+                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots setup' },
+                { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes setup' }
+            ],
+            'default': [
+                { name: 'Phase 1', duration: 60, type: 'moving', setupName: 'Phase 1 setup' },
+                { name: 'Phase 2', duration: 60, type: 'grid_5s', setupName: 'Phase 2 setup' }
+            ]
+        };
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+            
+            if (gameState === 'active' && stage && stage.type === 'moving') {
+                if (x > canvas.width - radius - borderPaddingX) x = canvas.width - radius - borderPaddingX;
+                if (x < radius + borderPaddingX) x = radius + borderPaddingX;
+                if (y > canvas.height - radius) y = canvas.height - radius;
+                if (y < radius) y = radius;
+            }
+        }
+        
+        window.addEventListener('resize', () => {
+            setTimeout(resizeCanvas, 150); 
         });
 
-        startButton.addEventListener('click', async () => {
-            if (audioContext) return; // Already running
+        function animate() {
+            if (gameState !== 'active') return;
 
-            try {
-                // Request mic access
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                
-                // Initialize Web Audio API
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                microphone = audioContext.createMediaStreamSource(stream);
-                
-                analyser.fftSize = 256;
-                microphone.connect(analyser);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                startButton.textContent = "Mic Active";
-                startButton.disabled = true;
-                startButton.style.backgroundColor = "#28a745";
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
 
-                monitorVolume();
-            } catch (err) {
-                alert('Microphone access denied or unsupported by browser: ' + err.message);
-            }
-        });
+            if (!stage) return;
 
-        function monitorVolume() {
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Float32Array(bufferLength);
+            if (stage.type === 'stationary') {
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
 
-            function update() {
-                analyser.getFloatTimeDomainData(dataArray);
+            } else if (stage.type === 'moving') {
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
 
-                // Calculate Root Mean Square (RMS) volume
-                let sumSquares = 0.0;
-                for (const amplitude of dataArray) {
-                    sumSquares += amplitude * amplitude;
+                if (x + dx > canvas.width - radius - borderPaddingX || x + dx < radius + borderPaddingX) {
+                    dx = -dx;
                 }
-                let rms = Math.sqrt(sumSquares / dataArray.length);
-
-                // Convert RMS to Decibels (dB)
-                let db = 20 * Math.log10(rms);
-                
-                // Handle silence (negative infinity)
-                if (!isFinite(db)) db = -100; 
-
-                // Round for clean UI display
-                const roundedDb = Math.round(db);
-                currentVolumeLabel.textContent = roundedDb;
-
-                // Check threshold trigger
-                const threshold = parseInt(thresholdSlider.value);
-                if (roundedDb >= threshold && !isFlashing) {
-                    triggerFlash();
+                if (y + dy > canvas.height - radius || y + dy < radius) {
+                    dy = -dy;
                 }
 
-                requestAnimationFrame(update);
+                x += dx;
+                y += dy;
+
+            } else if (stage.type === 'grid_5s') {
+                const totalGridWidth = diameter * 9;
+                const startX = (canvas.width - totalGridWidth) / 2 + radius;
+                const centerY = canvas.height / 2;
+
+                for (let i = 0; i < 5; i++) {
+                    const dotX = startX + (i * diameter * 2);
+                    ctx.beginPath();
+                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
+                    
+                    if (i === activeDotIndex) {
+                        ctx.fillStyle = '#000000';
+                        ctx.fill();
+                    } else {
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    ctx.closePath();
+                }
             }
 
-            requestAnimationFrame(update);
+            animationFrameId = requestAnimationFrame(animate);
         }
 
-        function triggerFlash() {
-            isFlashing = true;
-            
-            // Pick a random flash color
-            const randomColor = flashColors[Math.floor(Math.random() * flashColors.length)];
-            body.style.backgroundColor = randomColor;
+        function showWorkoutMenu() {
+            gameState = 'workouts';
+            mainMenu.style.display = 'none';
+            workoutMenu.style.display = 'flex';
+        }
 
-            // Reset background back to dark after exactly 1 second (1000ms)
-            flashTimeout = setTimeout(() => {
-                body.style.backgroundColor = '#121212';
-                
-                // Slight cooldown before allowing next flash to avoid instant re-triggering
-                setTimeout(() => {
-                    isFlashing = false;
-                }, 200); 
+        function startSetupSequence(workoutType) {
+            gameState = 'setup';
+            currentWorkout = workoutType;
+            workoutStageIndex = 0;
+            workoutMenu.style.display = 'none';
+            countdownScreen.style.display = 'flex';
+
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+            countdownHeader.textContent = stage.setupName || "Setup";
+
+            let setupTimeLeft = 5;
+            countdownNumber.textContent = setupTimeLeft;
+
+            setupInterval = setInterval(() => {
+                setupTimeLeft--;
+                countdownNumber.textContent = setupTimeLeft;
+
+                if (setupTimeLeft <= 0) {
+                    clearInterval(setupInterval);
+                    startActiveStage();
+                }
             }, 1000);
+        }
+
+        function startSetupBetweenStages() {
+            gameState = 'setup';
+            canvas.style.display = 'none';
+            timerHUD.style.display = 'none';
+            stageHUD.style.display = 'none';
+            centerTextHUD.style.display = 'none';
+            countdownScreen.style.display = 'flex';
+
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const nextStage = currentStages[workoutStageIndex];
+            countdownHeader.textContent = nextStage.setupName || "Setup";
+
+            let setupTimeLeft = 5;
+            countdownNumber.textContent = setupTimeLeft;
+
+            setupInterval = setInterval(() => {
+                setupTimeLeft--;
+                countdownNumber.textContent = setupTimeLeft;
+
+                if (setupTimeLeft <= 0) {
+                    clearInterval(setupInterval);
+                    startActiveStage();
+                }
+            }, 1000);
+        }
+
+        function startActiveStage() {
+            gameState = 'active';
+            countdownScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            timerHUD.style.display = 'block';
+            stageHUD.style.display = 'block';
+
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+
+            timeLeft = stage.duration;
+            stageHUD.textContent = stage.name;
+
+            if (stage.type === 'text_only') {
+                centerTextHUD.textContent = stage.name;
+                centerTextHUD.style.display = 'block';
+            } else {
+                centerTextHUD.style.display = 'none';
+            }
+
+            resizeCanvas();
+
+            x = window.innerWidth / 2;
+            y = window.innerHeight / 2;
+
+            if (stage.type === 'grid_5s') {
+                chooseRandomDot();
+            }
+
+            startTimer();
+            animate();
+        }
+
+        function startTimer() {
+            updateTimerDisplay();
+
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+                const stage = currentStages[workoutStageIndex];
+
+                if (stage && stage.type === 'grid_5s' && timeLeft % 5 === 0 && timeLeft > 0) {
+                    chooseRandomDot();
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    cancelAnimationFrame(animationFrameId);
+                    
+                    workoutStageIndex++;
+                    if (workoutStageIndex < currentStages.length) {
+                        startSetupBetweenStages();
+                    } else {
+                        endGame();
+                    }
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+            seconds = seconds < 10 ? '0' + seconds : seconds;
+            timerHUD.textContent = `${minutes}:${seconds}`;
+        }
+
+        function chooseRandomDot() {
+            let nextIndex;
+            do {
+                nextIndex = Math.floor(Math.random() * 5);
+            } while (nextIndex === activeDotIndex);
+            activeDotIndex = nextIndex;
+        }
+
+        function endGame() {
+            gameState = 'gameover';
+            canvas.style.display = 'none';
+            timerHUD.style.display = 'none';
+            stageHUD.style.display = 'none';
+            centerTextHUD.style.display = 'none';
+            gameOverMenu.style.display = 'flex';
+        }
+
+        function returnToWorkouts() {
+            gameState = 'workouts';
+            gameOverMenu.style.display = 'none';
+            workoutMenu.style.display = 'flex';
         }
     </script>
 </body>
