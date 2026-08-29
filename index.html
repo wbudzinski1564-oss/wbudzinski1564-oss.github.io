@@ -122,6 +122,32 @@
             display: none;
         }
 
+        #stageHUD {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #000000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 5;
+            display: none;
+        }
+
+        #distanceHUD {
+            position: absolute;
+            bottom: 20px;
+            left: 30px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 5;
+            display: none;
+        }
+
         #orientationWarning {
             display: none;
             position: fixed;
@@ -180,7 +206,7 @@
     </div>
 
     <div id="countdownScreen">
-        <h2>Distance: 5 Meters</h2>
+        <h2 id="countdownHeader">Distance: 5 Meters</h2>
         <div id="countdownNumber">5</div>
     </div>
 
@@ -189,7 +215,9 @@
         <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
     </div>
 
+    <div id="stageHUD">Prone Hold</div>
     <div id="timerHUD">1:00</div>
+    <div id="distanceHUD">Distance: 5 Meters</div>
     <canvas id="gameCanvas"></canvas>
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -198,31 +226,53 @@
         const mainMenu = document.getElementById('mainMenu');
         const workoutMenu = document.getElementById('workoutMenu');
         const countdownScreen = document.getElementById('countdownScreen');
+        const countdownHeader = document.getElementById('countdownHeader');
         const countdownNumber = document.getElementById('countdownNumber');
         const gameOverMenu = document.getElementById('gameOverMenu');
         const timerHUD = document.getElementById('timerHUD');
+        const stageHUD = document.getElementById('stageHUD');
+        const distanceHUD = document.getElementById('distanceHUD');
 
         let animationFrameId;
         let countdownInterval;
         let setupInterval;
         let timeLeft = 60;
         let gameState = 'menu';
+        let currentWorkout = 'A';
+        let workoutStageIndex = 0;
 
         const radius = 21.73;
         const diameter = radius * 2;
+        const borderPaddingX = 96; 
         let x, y;
         let dx = 0.8; 
         let dy = 0.8; 
 
         let activeDotIndex = 0;
 
+        const workoutProfiles = {
+            'A': [
+                { name: 'Prone Hold', duration: 180, type: 'stationary' },
+                { name: 'Standing Hold', duration: 180, type: 'mixed_stationary_first_minute' },
+                { name: 'Prone 1-Shots', duration: 180, type: 'stationary' },
+                { name: '16 Clip Changes', duration: 60, type: 'stationary' }
+            ],
+            'default': [
+                { name: 'Phase 1', duration: 60, type: 'moving' },
+                { name: 'Phase 2', duration: 60, type: 'grid_5s' }
+            ]
+        };
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             
-            if (gameState === 'phase1') {
-                if (x > canvas.width - radius) x = canvas.width - radius;
-                if (x < radius) x = radius;
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+            
+            if (gameState === 'active' && stage && (stage.type === 'moving' || (stage.type === 'mixed_stationary_first_minute' && timeLeft <= 120))) {
+                if (x > canvas.width - radius - borderPaddingX) x = canvas.width - radius - borderPaddingX;
+                if (x < radius + borderPaddingX) x = radius + borderPaddingX;
                 if (y > canvas.height - radius) y = canvas.height - radius;
                 if (y < radius) y = radius;
             }
@@ -233,19 +283,31 @@
         });
 
         function animate() {
-            if (gameState !== 'phase1' && gameState !== 'phase2') return;
+            if (gameState !== 'active') return;
 
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (gameState === 'phase1') {
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+
+            if (!stage) return;
+
+            if (stage.type === 'stationary' || (stage.type === 'mixed_stationary_first_minute' && timeLeft > 120)) {
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
+
+            } else if (stage.type === 'moving' || (stage.type === 'mixed_stationary_first_minute' && timeLeft <= 120)) {
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#000000';
                 ctx.fill();
                 ctx.closePath();
 
-                if (x + dx > canvas.width - radius || x + dx < radius) {
+                if (x + dx > canvas.width - radius - borderPaddingX || x + dx < radius + borderPaddingX) {
                     dx = -dx;
                 }
                 if (y + dy > canvas.height - radius || y + dy < radius) {
@@ -255,7 +317,7 @@
                 x += dx;
                 y += dy;
 
-            } else if (gameState === 'phase2') {
+            } else if (stage.type === 'grid_5s') {
                 const totalGridWidth = diameter * 9;
                 const startX = (canvas.width - totalGridWidth) / 2 + radius;
                 const centerY = canvas.height / 2;
@@ -288,8 +350,16 @@
 
         function startSetupSequence(workoutType) {
             gameState = 'setup';
+            currentWorkout = workoutType;
+            workoutStageIndex = 0;
             workoutMenu.style.display = 'none';
             countdownScreen.style.display = 'flex';
+
+            if (currentWorkout === 'A') {
+                countdownHeader.textContent = "prone hold: 3 min";
+            } else {
+                countdownHeader.textContent = "Distance: 5 Meters";
+            }
 
             let setupTimeLeft = 5;
             countdownNumber.textContent = setupTimeLeft;
@@ -300,23 +370,64 @@
 
                 if (setupTimeLeft <= 0) {
                     clearInterval(setupInterval);
-                    startGame();
+                    startActiveStage();
                 }
             }, 1000);
         }
 
-        function startGame() {
-            gameState = 'phase1';
-            timeLeft = 60;
+        function startSetupBetweenStages() {
+            gameState = 'setup';
+            canvas.style.display = 'none';
+            timerHUD.style.display = 'none';
+            stageHUD.style.display = 'none';
+            distanceHUD.style.display = 'none';
+            countdownScreen.style.display = 'flex';
 
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const nextStage = currentStages[workoutStageIndex];
+
+            if (currentWorkout === 'A' && nextStage.name === 'Prone 1-Shots') {
+                countdownHeader.textContent = "prone 1-shots setup";
+            } else {
+                countdownHeader.textContent = nextStage.name + " setup";
+            }
+
+            let setupTimeLeft = 5;
+            countdownNumber.textContent = setupTimeLeft;
+
+            setupInterval = setInterval(() => {
+                setupTimeLeft--;
+                countdownNumber.textContent = setupTimeLeft;
+
+                if (setupTimeLeft <= 0) {
+                    clearInterval(setupInterval);
+                    startActiveStage();
+                }
+            }, 1000);
+        }
+
+        function startActiveStage() {
+            gameState = 'active';
             countdownScreen.style.display = 'none';
             canvas.style.display = 'block';
             timerHUD.style.display = 'block';
+            stageHUD.style.display = 'block';
+            distanceHUD.style.display = 'block';
+
+            const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+            const stage = currentStages[workoutStageIndex];
+
+            timeLeft = stage.duration;
+            stageHUD.textContent = stage.name;
 
             resizeCanvas();
 
             x = window.innerWidth / 2;
             y = window.innerHeight / 2;
+
+            if (stage.type === 'grid_5s') {
+                chooseRandomDot();
+            }
 
             startTimer();
             animate();
@@ -329,14 +440,21 @@
                 timeLeft--;
                 updateTimerDisplay();
 
-                if (gameState === 'phase2' && timeLeft % 5 === 0 && timeLeft > 0) {
+                const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
+                const stage = currentStages[workoutStageIndex];
+
+                if (stage && stage.type === 'grid_5s' && timeLeft % 5 === 0 && timeLeft > 0) {
                     chooseRandomDot();
                 }
 
                 if (timeLeft <= 0) {
-                    if (gameState === 'phase1') {
-                        switchToPhase2();
-                    } else if (gameState === 'phase2') {
+                    clearInterval(countdownInterval);
+                    cancelAnimationFrame(animationFrameId);
+                    
+                    workoutStageIndex++;
+                    if (workoutStageIndex < currentStages.length) {
+                        startSetupBetweenStages();
+                    } else {
                         endGame();
                     }
                 }
@@ -358,20 +476,12 @@
             activeDotIndex = nextIndex;
         }
 
-        function switchToPhase2() {
-            gameState = 'phase2';
-            timeLeft = 60;
-            updateTimerDisplay();
-            chooseRandomDot();
-        }
-
         function endGame() {
             gameState = 'gameover';
-            clearInterval(countdownInterval);
-            cancelAnimationFrame(animationFrameId);
-
             canvas.style.display = 'none';
             timerHUD.style.display = 'none';
+            stageHUD.style.display = 'none';
+            distanceHUD.style.display = 'none';
             gameOverMenu.style.display = 'flex';
         }
 
