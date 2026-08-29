@@ -308,11 +308,6 @@
         let dx = 0.8; 
         let dy = 0.8; 
 
-        let activeDotIndex = 0;
-
-        // Structured workout configuration copied to all workouts
-        // Prone profiles use 'stationary' mode targets
-        // Standing profiles use 'moving' mode targets with names swapped to "Standing"
         const workoutProfiles = {
             'prone_a': [
                 { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
@@ -320,12 +315,12 @@
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'prone_b': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
+                { name: 'Prone Hold', duration: 180, type: 'grid_5_static', setupName: 'prone hold: 3 min' },
                 { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'prone_c': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
+                { name: 'Prone Hold', duration: 180, type: 'stationary_line_bottom', setupName: 'prone hold: 3 min' },
                 { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
@@ -335,23 +330,23 @@
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_a': [
-                { name: 'Standing Hold', duration: 180, type: 'moving', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'moving', setupName: 'standing 1-shots' },
+                { name: 'Standing Hold', duration: 180, type: 'stationary', setupName: 'standing hold: 3 min' },
+                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_b': [
-                { name: 'Standing Hold', duration: 180, type: 'moving', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'moving', setupName: 'standing 1-shots' },
+                { name: 'Standing Hold', duration: 180, type: 'grid_5_static', setupName: 'standing hold: 3 min' },
+                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_c': [
-                { name: 'Standing Hold', duration: 180, type: 'moving', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'moving', setupName: 'standing 1-shots' },
+                { name: 'Standing Hold', duration: 180, type: 'stationary_line_sides', setupName: 'standing hold: 3 min' },
+                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ],
             'standing_d': [
                 { name: 'Standing Hold', duration: 180, type: 'moving', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'moving', setupName: 'standing 1-shots' },
+                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
                 { name: '16 Clip Changes', duration: 60, type: 'text_only', setupName: '16 clip changes' }
             ]
         };
@@ -377,10 +372,12 @@
             const stage = currentStages ? currentStages[workoutStageIndex] : null;
             
             if (gameState === 'active' && stage && stage.type === 'moving') {
+                // Bounds tightly constrained vertically and horizontally to prevent target overlapping the enlarged text elements
+                const topTextMargin = 120 * selectedDistanceFactor; 
                 if (x > canvas.width - radius - borderPaddingX) x = canvas.width - radius - borderPaddingX;
                 if (x < radius + borderPaddingX) x = radius + borderPaddingX;
                 if (y > canvas.height - radius) y = canvas.height - radius;
-                if (y < radius) y = radius;
+                if (y < radius + topTextMargin) y = radius + topTextMargin;
             }
         }
         
@@ -405,6 +402,46 @@
                 ctx.fill();
                 ctx.closePath();
 
+            } else if (stage.type === 'stationary_line_bottom') {
+                // Core black target circle
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
+
+                // Extension line spanning exactly 3 diameters below target bottom edge, thickness matching 1 target radius
+                ctx.fillStyle = '#000000';
+                ctx.fillRect((canvas.width / 2) - (radius / 2), (canvas.height / 2) + radius, radius, diameter * 3);
+
+            } else if (stage.type === 'stationary_line_sides') {
+                // Core black target circle
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#000000';
+                ctx.fill();
+                ctx.closePath();
+
+                // Extension lines extending out from both left and right edges matching radius width and 3 target diameters in length
+                ctx.fillStyle = '#000000';
+                ctx.fillRect((canvas.width / 2) - radius - (diameter * 3), (canvas.height / 2) - (radius / 2), diameter * 3, radius);
+                ctx.fillRect((canvas.width / 2) + radius, (canvas.height / 2) - (radius / 2), diameter * 3, radius);
+
+            } else if (stage.type === 'grid_5_static') {
+                // Renders 5 static solid black circular targets side-by-side
+                const totalGridWidth = diameter * 9;
+                const startX = (canvas.width - totalGridWidth) / 2 + radius;
+                const centerY = canvas.height / 2;
+
+                for (let i = 0; i < 5; i++) {
+                    const dotX = startX + (i * diameter * 2);
+                    ctx.beginPath();
+                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000000';
+                    ctx.fill();
+                    ctx.closePath();
+                }
+
             } else if (stage.type === 'moving') {
                 ctx.beginPath();
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -412,10 +449,11 @@
                 ctx.fill();
                 ctx.closePath();
 
+                const topTextMargin = 120 * selectedDistanceFactor;
                 if (x + dx > canvas.width - radius - borderPaddingX || x + dx < radius + borderPaddingX) {
                     dx = -dx;
                 }
-                if (y + dy > canvas.height - radius || y + dy < radius) {
+                if (y + dy > canvas.height - radius || y + dy < radius + topTextMargin) {
                     dy = -dy;
                 }
 
@@ -498,19 +536,20 @@
             timeLeft = stage.duration;
 
             if (stage.type === 'text_only') {
-                stageHUD.style.display = 'none'; // Hide the stage name from the top-left corner
+                stageHUD.style.display = 'none'; 
                 centerTextHUD.textContent = stage.name;
                 centerTextHUD.style.display = 'block';
             } else {
                 stageHUD.textContent = stage.name;
-                stageHUD.style.display = 'block'; // Show the stage name in the top-left corner
+                stageHUD.style.display = 'block'; 
                 centerTextHUD.style.display = 'none';
             }
 
             resizeCanvas();
 
             x = canvas.width / 2;
-            y = canvas.height / 2;
+            const topTextMargin = 120 * selectedDistanceFactor;
+            y = (canvas.height / 2) + (topTextMargin / 2);
 
             startTimer();
             animate();
