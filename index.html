@@ -17,6 +17,17 @@
             user-select: none;
             touch-action: none;
         }
+
+        /* 1cm margin frame flanking both sides of the screen */
+        .page-frame {
+            position: absolute;
+            top: 0;
+            left: 1cm;
+            right: 1cm;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
         
         canvas {
             position: absolute;
@@ -55,13 +66,33 @@
             text-transform: uppercase;
         }
 
-        #menuDistance {
+        .select-container {
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .select-container label {
             font-size: 1.25rem;
             font-weight: bold;
-            color: #666666;
-            margin-bottom: 2rem;
+            color: #000000;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+
+        .distance-dropdown {
+            padding: 10px 20px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #000000;
+            background-color: #ffffff;
+            border: 3px solid #000000;
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            outline: none;
         }
 
         .play-btn {
@@ -119,40 +150,36 @@
             font-family: monospace;
         }
 
-        /* Doubled HUD text size during gameplay */
         #timerHUD {
             position: absolute;
             top: 20px;
             right: 30px;
-            font-size: 4rem;
             font-weight: bold;
             color: #000000;
             font-family: monospace;
             z-index: 5;
             display: none;
+            transition: font-size 0.15s ease;
         }
 
-        /* Doubled HUD text size during gameplay */
         #stageHUD {
             position: absolute;
             top: 20px;
             left: 30px;
-            font-size: 3rem;
             font-weight: bold;
             color: #000000;
             text-transform: uppercase;
             letter-spacing: 1px;
             z-index: 5;
             display: none;
+            transition: font-size 0.15s ease;
         }
 
-        /* Huge center text overlay for special workout stages */
         #centerTextHUD {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 4rem;
             font-weight: bold;
             color: #000000;
             text-transform: uppercase;
@@ -161,6 +188,7 @@
             display: none;
             pointer-events: none;
             text-align: center;
+            transition: font-size 0.15s ease;
         }
 
         #orientationWarning {
@@ -201,40 +229,51 @@
         <p>Please rotate your device sideways to play!</p>
     </div>
 
-    <div id="mainMenu">
-        <h1>Dry Fire</h1>
-        <div id="menuDistance">Distance: 5 Meters</div>
-        <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
-    </div>
-
-    <div id="workoutMenu">
-        <h1>Select Workout</h1>
-        <div class="workout-grid">
-            <button class="workout-btn" onclick="startSetupSequence('prone_a')">Prone A</button>
-            <button class="workout-btn" onclick="startSetupSequence('prone_b')">Prone B</button>
-            <button class="workout-btn" onclick="startSetupSequence('prone_c')">Prone C</button>
-            <button class="workout-btn" onclick="startSetupSequence('prone_d')">Prone D</button>
-            <button class="workout-btn" onclick="startSetupSequence('standing_a')">Standing A</button>
-            <button class="workout-btn" onclick="startSetupSequence('standing_b')">Standing B</button>
-            <button class="workout-btn" onclick="startSetupSequence('standing_c')">Standing C</button>
-            <button class="workout-btn" onclick="startSetupSequence('standing_d')">Standing D</button>
+    <div class="page-frame">
+        <div id="mainMenu">
+            <h1>Dry Fire</h1>
+            <div class="select-container">
+                <label for="distanceSelect">Distance:</label>
+                <select id="distanceSelect" class="distance-dropdown">
+                    <option value="1">1 Meter</option>
+                    <option value="2">2 Meters</option>
+                    <option value="3">3 Meters</option>
+                    <option value="4">4 Meters</option>
+                    <option value="5" selected>5 Meters</option>
+                </select>
+            </div>
+            <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
         </div>
-    </div>
 
-    <div id="countdownScreen">
-        <h2 id="countdownHeader">Setup</h2>
-        <div id="countdownNumber">5</div>
-    </div>
+        <div id="workoutMenu">
+            <h1>Select Workout</h1>
+            <div class="workout-grid">
+                <button class="workout-btn" onclick="startSetupSequence('prone_a')">Prone A</button>
+                <button class="workout-btn" onclick="startSetupSequence('prone_b')">Prone B</button>
+                <button class="workout-btn" onclick="startSetupSequence('prone_c')">Prone C</button>
+                <button class="workout-btn" onclick="startSetupSequence('prone_d')">Prone D</button>
+                <button class="workout-btn" onclick="startSetupSequence('standing_a')">Standing A</button>
+                <button class="workout-btn" onclick="startSetupSequence('standing_b')">Standing B</button>
+                <button class="workout-btn" onclick="startSetupSequence('standing_c')">Standing C</button>
+                <button class="workout-btn" onclick="startSetupSequence('standing_d')">Standing D</button>
+            </div>
+        </div>
 
-    <div id="gameOverMenu">
-        <h1>Drill Complete!</h1>
-        <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
-    </div>
+        <div id="countdownScreen">
+            <h2 id="countdownHeader">Setup</h2>
+            <div id="countdownNumber">5</div>
+        </div>
 
-    <div id="stageHUD">Prone Hold</div>
-    <div id="timerHUD">1:00</div>
-    <div id="centerTextHUD">16 Clip Changes</div>
-    <canvas id="gameCanvas"></canvas>
+        <div id="gameOverMenu">
+            <h1>Drill Complete!</h1>
+            <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
+        </div>
+
+        <div id="stageHUD">Prone Hold</div>
+        <div id="timerHUD">1:00</div>
+        <div id="centerTextHUD">16 Clip Changes</div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -248,6 +287,7 @@
         const timerHUD = document.getElementById('timerHUD');
         const stageHUD = document.getElementById('stageHUD');
         const centerTextHUD = document.getElementById('centerTextHUD');
+        const distanceSelect = document.getElementById('distanceSelect');
 
         let animationFrameId;
         let countdownInterval;
@@ -257,9 +297,13 @@
         let currentWorkout = 'prone_a';
         let workoutStageIndex = 0;
 
-        const radius = 21.73;
-        const diameter = radius * 2;
+        const baseRadius = 21.73;
         const borderPaddingX = 96; 
+        
+        let radius = baseRadius;
+        let diameter = radius * 2;
+        let selectedDistanceFactor = 1.0; 
+
         let x, y;
         let dx = 0.8; 
         let dy = 0.8; 
@@ -278,9 +322,22 @@
             ]
         };
 
+        function applyDistanceScaling() {
+            const distanceValue = parseInt(distanceSelect.value, 10);
+            selectedDistanceFactor = distanceValue / 5;
+            
+            radius = baseRadius * selectedDistanceFactor;
+            diameter = radius * 2;
+
+            stageHUD.style.fontSize = `${3 * selectedDistanceFactor}rem`;
+            timerHUD.style.fontSize = `${4 * selectedDistanceFactor}rem`;
+            centerTextHUD.style.fontSize = `${4 * selectedDistanceFactor}rem`;
+        }
+
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            const parentFrame = document.querySelector('.page-frame');
+            canvas.width = parentFrame.clientWidth;
+            canvas.height = parentFrame.clientHeight;
             
             const currentStages = workoutProfiles[currentWorkout] || workoutProfiles['default'];
             const stage = currentStages[workoutStageIndex];
@@ -358,11 +415,11 @@
         }
 
         function showWorkoutMenu() {
+            applyDistanceScaling(); 
             gameState = 'workouts';
             mainMenu.style.display = 'none';
             workoutMenu.style.display = 'flex';
         }
-
         function startSetupSequence(workoutType) {
             gameState = 'setup';
             currentWorkout = workoutType;
@@ -436,8 +493,8 @@
 
             resizeCanvas();
 
-            x = window.innerWidth / 2;
-            y = window.innerHeight / 2;
+            x = canvas.width / 2;
+            y = canvas.height / 2;
 
             if (stage.type === 'grid_5s') {
                 chooseRandomDot();
