@@ -271,7 +271,7 @@
 
         <div id="stageHUD">Prone Hold</div>
         <div id="timerHUD">1:00</div>
-        <div id="centerTextHUD">16 Clip Changes</div>
+        <div id="centerTextHUD">8 Clip Changes</div>
         <canvas id="gameCanvas"></canvas>
     </div>
     <script>
@@ -297,7 +297,8 @@
         let currentWorkout = 'prone_a';
         let workoutStageIndex = 0;
 
-        const baseRadius = 21.73;
+        // Base measurements at full 5m scale parameters multiplied by 1.5 (all targets 50% bigger)
+        const baseRadius = 21.73 * 1.5;
         const borderPaddingX = 96; 
         
         let radius = baseRadius;
@@ -312,42 +313,43 @@
         let wakeLock = null;
         let videoWakeElement = null;
 
+        // Configurations updated: Second stages reduced to 2 minutes (120s), Clip Changes renamed to 8 Clip Changes and shortened to 20s
         const workoutProfiles = {
             'prone_a': [
                 { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' }
+                { name: 'Prone 1-Shots', duration: 120, type: 'stationary', setupName: 'prone 1-shots' }
             ],
             'prone_b': [
                 { name: 'Prone Hold', duration: 180, type: 'grid_5_static', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 180, type: 'stationary', setupName: 'prone 1-shots' }
+                { name: 'Prone 1-Shots', duration: 120, type: 'stationary', setupName: 'prone 1-shots' }
             ],
             'prone_c': [
                 { name: 'Prone Hold', duration: 180, type: 'stationary_line_bottom', setupName: 'prone hold: 3 min' },
-                { name: '5-Across Prone', duration: 180, type: 'grid_5_static', setupName: '5-across prone' }
+                { name: '5-Across Prone', duration: 120, type: 'grid_5_static', setupName: '5-across prone' }
             ],
             'prone_d': [
                 { name: 'Prone Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'prone hold: 3 min' },
-                { name: '5-Across Prone', duration: 180, type: 'grid_5_static', setupName: '5-across prone' }
+                { name: '5-Across Prone', duration: 120, type: 'grid_5_static', setupName: '5-across prone' }
             ],
             'standing_a': [
                 { name: 'Standing Hold', duration: 180, type: 'mixed_standing_hold_a', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
-                { name: '16 Clip Changes', duration: 40, type: 'text_only', setupName: '16 clip changes' }
+                { name: 'Standing 1-Shots', duration: 120, type: 'stationary', setupName: 'standing 1-shots' },
+                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
             ],
             'standing_b': [
                 { name: 'Standing Hold', duration: 180, type: 'grid_5_static', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 180, type: 'stationary', setupName: 'standing 1-shots' },
-                { name: '16 Clip Changes', duration: 40, type: 'text_only', setupName: '16 clip changes' }
+                { name: 'Standing 1-Shots', duration: 120, type: 'stationary', setupName: 'standing 1-shots' },
+                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
             ],
             'standing_c': [
                 { name: 'Standing Hold', duration: 180, type: 'stationary_line_sides', setupName: 'standing hold: 3 min' },
-                { name: '5-Across Standing', duration: 180, type: 'grid_5_static', setupName: '5-across standing' },
-                { name: '16 Clip Changes', duration: 40, type: 'text_only', setupName: '16 clip changes' }
+                { name: '5-Across Standing', duration: 120, type: 'grid_5_static', setupName: '5-across standing' },
+                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
             ],
             'standing_d': [
                 { name: 'Standing Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'standing hold: 3 min' },
-                { name: '5-Across Standing', duration: 180, type: 'grid_5_static', setupName: '5-across standing' },
-                { name: '16 Clip Changes', duration: 40, type: 'text_only', setupName: '16 clip changes' }
+                { name: '5-Across Standing', duration: 120, type: 'grid_5_static', setupName: '5-across standing' },
+                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
             ]
         };
 
@@ -370,7 +372,7 @@
                 videoWakeElement.style.width = '1px';
                 videoWakeElement.style.height = '1px';
                 videoWakeElement.style.opacity = '0.01';
-                videoWakeElement.src = 'https://mixkit.co';
+                videoWakeElement.src = 'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDJpc29tAAAALW1vb3YAAABsbXZoZAAAAADb7ofb2+6H2wAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACNXRyYWsAAABcdGtoZAAAAADb7ofb2+6H2wAAAAEAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAABQAAAAEAAAAAAZWR0cwAAABxoZHN0AAAAAV9fYm91bmRzX19fX19fX19fAAAAI21kaWEAAAAgbWRoZAAAAADb7ofb2+6H2wAAAAEAAAAAAAABAAAAADFoZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAEHZtYWhkAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAFUbXRibAAAAGRzdHNkAAAAAAAAAAEAAApcYXZjMQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAFAAUASAAAAEgAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABf2YXZjQ0AxRQDwAP/4AEYAbXBoYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYf/VAAAAGGNoZWNrAAAAAF9fYm91bmRzX19fX19fAAAAFHN0dHMAAAAAAAAAAQAAAAEAAAAQAAAAFHN0c3MAAAAAAAAAAQAAAAEAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAEAAAABAAAAFHN0c3oAAAAAAAAAAAAAAAEAAAAQAAAAFHN0Y28AAAAAAAAAAQAAADwAAAAMdWR0YQAAAAEAAA==';
                 document.body.appendChild(videoWakeElement);
             }
             
