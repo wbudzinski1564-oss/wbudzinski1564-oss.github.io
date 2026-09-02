@@ -2,692 +2,149 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Dry Fire</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snap Detector</title>
     <style>
-        html, body {
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-user-select: none;
-            user-select: none;
-            touch-action: none;
-        }
-
-        /* 1cm margin frame flanking both sides of the screen */
-        .page-frame {
-            position: absolute;
-            top: 0;
-            left: 1cm;
-            right: 1cm;
-            height: 100%;
-            overflow: hidden;
-            background-color: #ffffff;
-        }
-        
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none; 
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: pixelated;
-        }
-
-        #mainMenu, #workoutMenu, #countdownScreen, #gameOverMenu {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #ffffff;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, sans-serif;
+            transition: background-color 0.1s ease-out;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
             z-index: 10;
         }
 
-        #workoutMenu, #countdownScreen, #gameOverMenu {
-            display: none;
-        }
-
-        h1 {
-            font-size: 3rem;
-            color: #000000;
-            margin: 0 0 1rem 0;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .select-container {
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .select-container label {
-            font-size: 1.25rem;
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
             font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            background-color: #00ff88;
             color: #000000;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .distance-dropdown {
-            padding: 10px 20px;
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: #000000;
-            background-color: #ffffff;
-            border: 3px solid #000000;
-            border-radius: 5px;
             cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            outline: none;
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+            transition: transform 0.2s, background-color 0.2s;
         }
 
-        .play-btn {
-            padding: 15px 40px;
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: #ffffff;
-            background-color: #000000;
-            border: 2px solid #000000;
-            border-radius: 5px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        button:hover {
+            transform: scale(1.05);
+            background-color: #00e67a;
         }
 
-        .workout-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            width: 85%;
-            max-width: 900px;
+        button:active {
+            transform: scale(0.95);
         }
 
-        .workout-btn {
-            padding: 20px 10px;
+        .status {
+            margin-top: 20px;
             font-size: 1.1rem;
-            font-weight: bold;
-            color: #000000;
-            background-color: #ffffff;
-            border: 3px solid #000000;
-            border-radius: 6px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.15s ease;
+            color: #aaaaaa;
         }
 
-        .workout-btn:hover {
-            background-color: #000000;
-            color: #ffffff;
-        }
-
-        #countdownScreen h2 {
-            font-size: 2.2rem;
-            color: #000000;
-            margin: 0 0 1rem 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        #countdownNumber {
-            font-size: 5rem;
-            font-weight: bold;
-            color: #000000;
-            font-family: monospace;
-        }
-
-        #timerHUD {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            font-weight: bold;
-            color: #000000;
-            font-family: monospace;
-            z-index: 5;
-            display: none;
-            transition: font-size 0.15s ease;
-        }
-
-        #stageHUD {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            font-weight: bold;
-            color: #000000;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            z-index: 5;
-            display: none;
-            transition: font-size 0.15s ease;
-        }
-
-        #centerTextHUD {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
-            color: #000000;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            z-index: 4;
-            display: none;
-            pointer-events: none;
-            text-align: center;
-            transition: font-size 0.15s ease;
-        }
-
-        #orientationWarning {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #ffffff;
-            z-index: 100;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        #orientationWarning p {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #000000;
-            margin-top: 15px;
-        }
-
-        @media (orientation: portrait) {
-            #orientationWarning {
-                display: flex;
-            }
+        /* Flash class applied to body via JS */
+        body.flash {
+            background-color: #ff0055;
+            transition: none; /* Instant bright flash */
         }
     </style>
 </head>
 <body>
 
-    <div id="orientationWarning">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><path d="M12 18h.01"></path></svg>
-        <p>Please rotate your device sideways to play!</p>
+    <div class="container">
+        <h1>Snap & Clap Detector</h1>
+        <p>Click the button below to start monitoring your microphone.</p>
+        <button id="startButton">Start Listening</button>
+        <div id="status" class="status">Microphone: Idle</div>
     </div>
 
-    <div class="page-frame">
-        <div id="mainMenu">
-            <h1>Dry Fire</h1>
-            <div class="select-container">
-                <label for="distanceSelect">Distance:</label>
-                <select id="distanceSelect" class="distance-dropdown">
-                    <option value="1">1 Meter</option>
-                    <option value="2">2 Meters</option>
-                    <option value="3">3 Meters</option>
-                    <option value="4">4 Meters</option>
-                    <option value="5" selected>5 Meters</option>
-                </select>
-            </div>
-            <button class="play-btn" onclick="showWorkoutMenu()">Play</button>
-        </div>
-
-        <div id="workoutMenu">
-            <h1>Select Workout</h1>
-            <div class="workout-grid">
-                <button class="workout-btn" onclick="startSetupSequence('prone_a')">Prone A</button>
-                <button class="workout-btn" onclick="startSetupSequence('prone_b')">Prone B</button>
-                <button class="workout-btn" onclick="startSetupSequence('prone_c')">Prone C</button>
-                <button class="workout-btn" onclick="startSetupSequence('prone_d')">Prone D</button>
-                <button class="workout-btn" onclick="startSetupSequence('standing_a')">Standing A</button>
-                <button class="workout-btn" onclick="startSetupSequence('standing_b')">Standing B</button>
-                <button class="workout-btn" onclick="startSetupSequence('standing_c')">Standing C</button>
-                <button class="workout-btn" onclick="startSetupSequence('standing_d')">Standing D</button>
-            </div>
-        </div>
-
-        <div id="countdownScreen">
-            <h2 id="countdownHeader">Setup</h2>
-            <div id="countdownNumber">5</div>
-        </div>
-
-        <div id="gameOverMenu">
-            <h1>Drill Complete!</h1>
-            <button class="play-btn" onclick="returnToWorkouts()">Main Menu</button>
-        </div>
-
-        <div id="stageHUD">Prone Hold</div>
-        <div id="timerHUD">1:00</div>
-        <div id="centerTextHUD">8 Clip Changes</div>
-        <canvas id="gameCanvas"></canvas>
-    </div>
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const statusText = document.getElementById('status');
         
-        const mainMenu = document.getElementById('mainMenu');
-        const workoutMenu = document.getElementById('workoutMenu');
-        const countdownScreen = document.getElementById('countdownScreen');
-        const countdownHeader = document.getElementById('countdownHeader');
-        const countdownNumber = document.getElementById('countdownNumber');
-        const gameOverMenu = document.getElementById('gameOverMenu');
-        const timerHUD = document.getElementById('timerHUD');
-        const stageHUD = document.getElementById('stageHUD');
-        const centerTextHUD = document.getElementById('centerTextHUD');
-        const distanceSelect = document.getElementById('distanceSelect');
-
-        let animationFrameId;
-        let countdownInterval;
-        let setupInterval;
-        let timeLeft = 60;
-        let gameState = 'menu';
-        let currentWorkout = 'prone_a';
-        let workoutStageIndex = 0;
-
-        // Base measurements at full 5m scale parameters multiplied by 1.5 (all targets 50% bigger)
-        const baseRadius = 21.73 * 1.5;
-        const borderPaddingX = 96; 
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
         
-        let radius = baseRadius;
-        let diameter = radius * 2;
-        let selectedDistanceFactor = 1.0; 
+        // Configuration thresholds
+        const SNAP_THRESHOLD = 45; // How loud the sound must be (0-255)
+        const COOLDOWN_TIME = 300; // Milliseconds to wait before detecting the next snap
+        let lastTriggerTime = 0;
 
-        let x, y;
-        let dx = 0.8; 
-        let dy = 0.8; 
+        startButton.addEventListener('click', async () => {
+            // Browser security requires a user gesture to start audio
+            if (audioContext) return; 
 
-        let activeDotIndex = 0;
-        let wakeLock = null;
-        let videoWakeElement = null;
-
-        // Configurations updated: Second stages reduced to 2 minutes (120s), Clip Changes renamed to 8 Clip Changes and shortened to 20s
-        const workoutProfiles = {
-            'prone_a': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 120, type: 'stationary', setupName: 'prone 1-shots' }
-            ],
-            'prone_b': [
-                { name: 'Prone Hold', duration: 180, type: 'grid_5_static', setupName: 'prone hold: 3 min' },
-                { name: 'Prone 1-Shots', duration: 120, type: 'stationary', setupName: 'prone 1-shots' }
-            ],
-            'prone_c': [
-                { name: 'Prone Hold', duration: 180, type: 'stationary_line_bottom', setupName: 'prone hold: 3 min' },
-                { name: '5-Across Prone', duration: 120, type: 'grid_5_static', setupName: '5-across prone' }
-            ],
-            'prone_d': [
-                { name: 'Prone Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'prone hold: 3 min' },
-                { name: '5-Across Prone', duration: 120, type: 'grid_5_static', setupName: '5-across prone' }
-            ],
-            'standing_a': [
-                { name: 'Standing Hold', duration: 180, type: 'mixed_standing_hold_a', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 120, type: 'stationary', setupName: 'standing 1-shots' },
-                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
-            ],
-            'standing_b': [
-                { name: 'Standing Hold', duration: 180, type: 'grid_5_static', setupName: 'standing hold: 3 min' },
-                { name: 'Standing 1-Shots', duration: 120, type: 'stationary', setupName: 'standing 1-shots' },
-                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
-            ],
-            'standing_c': [
-                { name: 'Standing Hold', duration: 180, type: 'stationary_line_sides', setupName: 'standing hold: 3 min' },
-                { name: '5-Across Standing', duration: 120, type: 'grid_5_static', setupName: '5-across standing' },
-                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
-            ],
-            'standing_d': [
-                { name: 'Standing Hold', duration: 180, type: 'grid_5s_blinking', setupName: 'standing hold: 3 min' },
-                { name: '5-Across Standing', duration: 120, type: 'grid_5_static', setupName: '5-across standing' },
-                { name: '8 Clip Changes', duration: 20, type: 'text_only', setupName: '8 clip changes' }
-            ]
-        };
-
-        async function activateWakeLock() {
             try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    return;
+                // 1. Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                statusText.innerText = "Microphone: Listening...";
+                startButton.style.display = 'none';
+
+                // 2. Set up Web Audio API pipeline
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Small buffer for fast, real-time responses
+
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+
+                // 3. Monitor audio frames continuously
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                function checkAudio() {
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Find the loudest frequency in the current frame
+                    let maxVolume = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        if (dataArray[i] > maxVolume) {
+                            maxVolume = dataArray[i];
+                        }
+                    }
+
+                    // 4. Threshold and cooldown logic
+                    const currentTime = Date.now();
+                    if (maxVolume > SNAP_THRESHOLD && (currentTime - lastTriggerTime) > COOLDOWN_TIME) {
+                        triggerAction();
+                        lastTriggerTime = currentTime;
+                    }
+
+                    requestAnimationFrame(checkAudio);
                 }
-            } catch (e) {
-                console.warn("Native wake lock failed, running iOS Safari video fallback loop.");
-            }
 
-            if (!videoWakeElement) {
-                videoWakeElement = document.createElement('video');
-                videoWakeElement.setAttribute('loop', '');
-                videoWakeElement.setAttribute('playsinline', '');
-                videoWakeElement.muted = true;
-                videoWakeElement.style.position = 'absolute';
-                videoWakeElement.style.width = '1px';
-                videoWakeElement.style.height = '1px';
-                videoWakeElement.style.opacity = '0.01';
-                videoWakeElement.src = 'data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDJpc29tAAAALW1vb3YAAABsbXZoZAAAAADb7ofb2+6H2wAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACNXRyYWsAAABcdGtoZAAAAADb7ofb2+6H2wAAAAEAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAABQAAAAEAAAAAAZWR0cwAAABxoZHN0AAAAAV9fYm91bmRzX19fX19fX19fAAAAI21kaWEAAAAgbWRoZAAAAADb7ofb2+6H2wAAAAEAAAAAAAABAAAAADFoZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAEHZtYWhkAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAFUbXRibAAAAGRzdHNkAAAAAAAAAAEAAApcYXZjMQAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAFAAUASAAAAEgAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABf2YXZjQ0AxRQDwAP/4AEYAbXBoYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYf/VAAAAGGNoZWNrAAAAAF9fYm91bmRzX19fX19fAAAAFHN0dHMAAAAAAAAAAQAAAAEAAAAQAAAAFHN0c3MAAAAAAAAAAQAAAAEAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAEAAAABAAAAFHN0c3oAAAAAAAAAAAAAAAEAAAAQAAAAFHN0Y28AAAAAAAAAAQAAADwAAAAMdWR0YQAAAAEAAA==';
-                document.body.appendChild(videoWakeElement);
-            }
-            
-            try {
-                await videoWakeElement.play();
+                checkAudio();
+
             } catch (err) {
-                console.error("Apple video fallback failed:", err);
-            }
-        }
-
-        function releaseWakeLock() {
-            if (wakeLock) {
-                wakeLock.release().then(() => wakeLock = null);
-            }
-            if (videoWakeElement) {
-                videoWakeElement.pause();
-            }
-        }
-
-        function applyDistanceScaling() {
-            const distanceValue = parseInt(distanceSelect.value, 10);
-            selectedDistanceFactor = distanceValue / 5;
-            
-            radius = baseRadius * selectedDistanceFactor;
-            diameter = radius * 2;
-
-            stageHUD.style.fontSize = `${3 * selectedDistanceFactor}rem`;
-            timerHUD.style.fontSize = `${4 * selectedDistanceFactor}rem`;
-            centerTextHUD.style.fontSize = `${4 * selectedDistanceFactor}rem`;
-        }
-
-        function resizeCanvas() {
-            const parentFrame = document.querySelector('.page-frame');
-            canvas.width = parentFrame.clientWidth;
-            canvas.height = parentFrame.clientHeight;
-            
-            const currentStages = workoutProfiles[currentWorkout];
-            const stage = currentStages ? currentStages[workoutStageIndex] : null;
-            
-            if (gameState === 'active' && stage && (stage.type === 'moving' || (stage.type === 'mixed_standing_hold_a' && timeLeft <= 60))) {
-                const textSafetyOffset = 130 * selectedDistanceFactor;
-                const rightPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
-                const leftPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
-                
-                if (x > canvas.width - radius - rightPaddingLimit) x = canvas.width - radius - rightPaddingLimit;
-                if (x < radius + leftPaddingLimit) x = radius + leftPaddingLimit;
-                if (y > canvas.height - radius) y = canvas.height - radius;
-                if (y < radius + textSafetyOffset) y = radius + textSafetyOffset;
-            }
-        }
-        
-        window.addEventListener('resize', () => {
-            setTimeout(resizeCanvas, 150); 
-        });
-        function animate() {
-            if (gameState !== 'active') return;
-
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const currentStages = workoutProfiles[currentWorkout];
-            const stage = currentStages ? currentStages[workoutStageIndex] : null;
-
-            if (!stage) return;
-
-            if (stage.type === 'stationary' || (stage.type === 'mixed_standing_hold_a' && timeLeft > 60)) {
-                ctx.beginPath();
-                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#000000';
-                ctx.fill();
-                ctx.closePath();
-
-            } else if (stage.type === 'stationary_line_bottom') {
-                ctx.beginPath();
-                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#000000';
-                ctx.fill();
-                ctx.closePath();
-
-                const lineWidth = diameter * 0.3;
-                ctx.fillStyle = '#000000';
-                ctx.fillRect((canvas.width / 2) - (lineWidth / 2), canvas.height / 2, lineWidth, diameter * 3);
-
-            } else if (stage.type === 'stationary_line_sides') {
-                ctx.beginPath();
-                ctx.arc(canvas.width / 2, canvas.height / 2, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#000000';
-                ctx.fill();
-                ctx.closePath();
-
-                const lineHeight = diameter * 0.3;
-                ctx.fillStyle = '#000000';
-                ctx.fillRect((canvas.width / 2) - (diameter * 3), (canvas.height / 2) - (lineHeight / 2), diameter * 3, lineHeight);
-                ctx.fillRect(canvas.width / 2, (canvas.height / 2) - (lineHeight / 2), diameter * 3, lineHeight);
-
-            } else if (stage.type === 'grid_5_static') {
-                const totalGridWidth = diameter * 9;
-                const startX = (canvas.width - totalGridWidth) / 2 + radius;
-                const centerY = canvas.height / 2;
-
-                for (let i = 0; i < 5; i++) {
-                    const dotX = startX + (i * diameter * 2);
-                    ctx.beginPath();
-                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
-                    ctx.fillStyle = '#000000';
-                    ctx.fill();
-                    ctx.closePath();
-                }
-
-            } else if (stage.type === 'grid_5s_blinking') {
-                const totalGridWidth = diameter * 9;
-                const startX = (canvas.width - totalGridWidth) / 2 + radius;
-                const centerY = canvas.height / 2;
-
-                for (let i = 0; i < 5; i++) {
-                    const dotX = startX + (i * diameter * 2);
-                    ctx.beginPath();
-                    ctx.arc(dotX, centerY, radius, 0, Math.PI * 2);
-                    
-                    if (i === activeDotIndex) {
-                        ctx.fillStyle = '#000000';
-                        ctx.fill();
-                    } else {
-                        ctx.strokeStyle = '#000000';
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-                    }
-                    ctx.closePath();
-                }
-
-            } else if (stage.type === 'moving' || (stage.type === 'mixed_standing_hold_a' && timeLeft <= 60)) {
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#000000';
-                ctx.fill();
-                ctx.closePath();
-
-                const textSafetyOffset = 130 * selectedDistanceFactor;
-                const rightPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
-                const leftPaddingLimit = borderPaddingX + 72 * selectedDistanceFactor;
-
-                if (x + dx > canvas.width - radius - rightPaddingLimit || x + dx < radius + leftPaddingLimit) {
-                    dx = -dx;
-                }
-                if (y + dy > canvas.height - radius || y + dy < radius + textSafetyOffset) {
-                    dy = -dy;
-                }
-
-                x += dx;
-                y += dy;
-            }
-
-            animationFrameId = requestAnimationFrame(animate);
-        }
-
-        function showWorkoutMenu() {
-            applyDistanceScaling(); 
-            gameState = 'workouts';
-            mainMenu.style.display = 'none';
-            workoutMenu.style.display = 'flex';
-        }
-
-        function startSetupSequence(workoutType) {
-            activateWakeLock(); 
-            gameState = 'setup';
-            currentWorkout = workoutType;
-            workoutStageIndex = 0;
-            workoutMenu.style.display = 'none';
-            countdownScreen.style.display = 'flex';
-
-            const currentStages = workoutProfiles[currentWorkout];
-            const stage = currentStages ? currentStages[workoutStageIndex] : null;
-            countdownHeader.textContent = stage ? stage.setupName : "Setup";
-
-            let setupTimeLeft = 5;
-            countdownNumber.textContent = setupTimeLeft;
-
-            setupInterval = setInterval(() => {
-                setupTimeLeft--;
-                countdownNumber.textContent = setupTimeLeft;
-
-                if (setupTimeLeft <= 0) {
-                    clearInterval(setupInterval);
-                    startActiveStage();
-                }
-            }, 1000);
-        }
-
-        function startSetupBetweenStages() {
-            gameState = 'setup';
-            canvas.style.display = 'none';
-            timerHUD.style.display = 'none';
-            stageHUD.style.display = 'none';
-            centerTextHUD.style.display = 'none';
-            countdownScreen.style.display = 'flex';
-
-            const currentStages = workoutProfiles[currentWorkout];
-            const nextStage = currentStages ? currentStages[workoutStageIndex] : null;
-            countdownHeader.textContent = nextStage ? nextStage.setupName : "Setup";
-
-            let setupTimeLeft = 5;
-            countdownNumber.textContent = setupTimeLeft;
-
-            setupInterval = setInterval(() => {
-                setupTimeLeft--;
-                countdownNumber.textContent = setupTimeLeft;
-
-                if (setupTimeLeft <= 0) {
-                    clearInterval(setupInterval);
-                    startActiveStage();
-                }
-            }, 1000);
-        }
-
-        function startActiveStage() {
-            gameState = 'active';
-            countdownScreen.style.display = 'none';
-            canvas.style.display = 'block';
-            timerHUD.style.display = 'block';
-
-            const currentStages = workoutProfiles[currentWorkout];
-            const stage = currentStages ? currentStages[workoutStageIndex] : null;
-
-            if (!stage) return;
-
-            timeLeft = stage.duration;
-
-            if (stage.type === 'text_only') {
-                stageHUD.style.display = 'none'; 
-                centerTextHUD.textContent = stage.name;
-                centerTextHUD.style.display = 'block';
-            } else {
-                stageHUD.textContent = stage.name;
-                stageHUD.style.display = 'block'; 
-                centerTextHUD.style.display = 'none';
-            }
-
-            resizeCanvas();
-
-            x = canvas.width / 2;
-            const textSafetyOffset = 130 * selectedDistanceFactor;
-            y = (canvas.height / 2) + (textSafetyOffset / 2);
-
-            if (stage.type === 'grid_5s_blinking') {
-                chooseRandomDot();
-            }
-
-            startTimer();
-            animate();
-        }
-
-        function startTimer() {
-            updateTimerDisplay();
-
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                updateTimerDisplay();
-
-                const currentStages = workoutProfiles[currentWorkout];
-                const stage = currentStages ? currentStages[workoutStageIndex] : null;
-
-                if (stage && stage.type === 'grid_5s_blinking' && timeLeft % 5 === 0 && timeLeft > 0) {
-                    chooseRandomDot();
-                }
-
-                if (timeLeft <= 0) {
-                    clearInterval(countdownInterval);
-                    cancelAnimationFrame(animationFrameId);
-                    
-                    workoutStageIndex++;
-                    if (currentStages && workoutStageIndex < currentStages.length) {
-                        startSetupBetweenStages();
-                    } else {
-                        endGame();
-                    }
-                }
-            }, 1000);
-        }
-
-        function updateTimerDisplay() {
-            let minutes = Math.floor(timeLeft / 60);
-            let seconds = timeLeft % 60;
-            seconds = seconds < 10 ? '0' + seconds : seconds;
-            timerHUD.textContent = `${minutes}:${seconds}`;
-        }
-
-        function chooseRandomDot() {
-            let nextIndex;
-            do {
-                nextIndex = Math.floor(Math.random() * 5);
-            } while (nextIndex === activeDotIndex);
-            activeDotIndex = nextIndex;
-        }
-
-        function endGame() {
-            releaseWakeLock(); 
-            gameState = 'gameover';
-            canvas.style.display = 'none';
-            timerHUD.style.display = 'none';
-            stageHUD.style.display = 'none';
-            centerTextHUD.style.display = 'none';
-            gameOverMenu.style.display = 'flex';
-        }
-
-        function returnToWorkouts() {
-            gameState = 'workouts';
-            gameOverMenu.style.display = 'none';
-            workoutMenu.style.display = 'flex';
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && (gameState === 'setup' || gameState === 'active')) {
-                activateWakeLock();
+                console.error('Error accessing microphone:', err);
+                statusText.innerText = "Error: Microphone access denied.";
+                statusText.style.color = "#ff4444";
             }
         });
+
+        // 5. The "Something" that happens
+        function triggerAction() {
+            // Add flash class to instantly change background
+            document.body.classList.add('flash');
+            
+            // Remove it shortly after to create a pulse effect
+            setTimeout(() => {
+                document.body.classList.remove('flash');
+            }, 100);
+        }
     </script>
 </body>
 </html>
