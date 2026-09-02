@@ -15,7 +15,6 @@
             margin: 0;
             padding: 0;
             width: 100vw;
-            /* FIXED: Forces browser to account for dynamic Apple URL/Search bar expansions */
             height: 100dvh; 
             min-height: -webkit-fill-available;
             background-color: #f5f5f4; 
@@ -25,7 +24,6 @@
             position: relative;
         }
 
-        /* Fullscreen Layout Engine */
         .page-layer {
             position: absolute;
             top: 0;
@@ -37,23 +35,27 @@
             align-items: center;
         }
 
-        /* Initial Setup Overlay */
+        /* CHANGED: Setup panel is now an edge-to-edge, full-width presentation window */
         .setup-panel {
             background: #1c1917;
             color: #f5f5f4;
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-            border: 1px solid #2e2a24;
-            width: 85vw;
-            max-width: 400px;
+            width: 100%;
+            height: 100%;
+            padding: 40px;
             text-align: center;
             z-index: 100;
+            flex-direction: column;
+        }
+
+        .setup-content {
+            max-width: 440px;
+            width: 100%;
+            margin: auto;
         }
 
         button {
-            padding: 14px 28px;
-            font-size: 1.2rem;
+            padding: 16px 32px;
+            font-size: 1.3rem;
             font-weight: 700;
             border: none;
             border-radius: 12px;
@@ -62,7 +64,7 @@
             cursor: pointer;
             transition: transform 0.1s, background-color 0.2s;
             width: 100%;
-            margin-top: 15px;
+            margin-top: 20px;
         }
 
         button:hover { background-color: #dc2626; }
@@ -88,7 +90,7 @@
             pointer-events: none;
         }
 
-        /* Moved back to top center layout per previous checkpoint */
+        /* Expanded Top HUD Control Bar Layout */
         .target-controls-top-hub {
             position: absolute;
             top: calc(12px + env(safe-area-inset-top)); 
@@ -96,14 +98,14 @@
             transform: translateX(-50%);
             background: rgba(28, 25, 23, 0.95);
             color: #f5f5f4;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 30px;
-            width: 90vw;
-            max-width: 520px;
+            width: 92vw;
+            max-width: 700px; /* CHANGED: Widened maximum bar envelope limits */
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 15px;
+            gap: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             border: 1px solid rgba(255,255,255,0.15);
             backdrop-filter: blur(10px);
@@ -119,43 +121,43 @@
         }
 
         .streak-pill-text {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #f5f5f4;
             white-space: nowrap;
         }
 
         .slider-label {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: #a8a29e;
         }
 
+        /* CHANGED: Slider section flex boundaries optimized to span maximum width */
         .slider-flex-container {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            max-width: 220px;
         }
 
         input[type="range"] {
             width: 100%;
             accent-color: #ef4444;
             margin: 0;
-            padding: 6px 0;
+            padding: 8px 0;
         }
 
         .meter-container {
             width: 100%;
-            height: 4px;
+            height: 5px;
             background-color: #292524;
             border-radius: 2px;
             overflow: hidden;
             position: relative;
-            margin-top: 1px;
+            margin-top: 2px;
         }
 
         .meter-bar {
@@ -175,17 +177,17 @@
         }
 
         .value-display {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #f43f5e;
-            min-width: 25px;
+            min-width: 30px;
             text-align: right;
         }
 
         .inline-gear-btn {
             background: none;
             border: none;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             cursor: pointer;
             padding: 0 0 0 5px;
             margin: 0;
@@ -246,12 +248,12 @@
         <p style="color: #a8a29e; font-size: 0.9rem; max-width: 260px; margin: 0;">Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
-    <!-- First Page Frame -->
+    <!-- First Page Full Width Window Frame -->
     <div id="setupPanel" class="page-layer setup-panel">
-        <div>
-            <h2 style="margin:0 0 4px 0; font-size: 1.8rem; letter-spacing: -0.02em;">Dry Fire</h2>
-            <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 10px 0;">Tap begin to launch the training center target frame.</p>
-            <div id="welcomeStreak" style="font-size: 0.95rem; margin-bottom: 5px; color: #f43f5e; font-weight: bold;"></div>
+        <div class="setup-content">
+            <h2 style="margin:0 0 6px 0; font-size: 2.2rem; letter-spacing: -0.02em;">Dry Fire</h2>
+            <p style="color:#a8a29e; font-size:0.95rem; margin:0 0 15px 0;">Tap begin to launch the training center target frame.</p>
+            <div id="welcomeStreak" style="font-size: 1.05rem; margin-bottom: 5px; color: #f43f5e; font-weight: bold;"></div>
             <button id="beginBtn">Begin</button>
         </div>
     </div>
