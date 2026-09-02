@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snap Detector</title>
+    <title>Snap Detector with Sensitivity Control</title>
     <style>
         body {
             margin: 0;
@@ -23,6 +23,12 @@
         .container {
             text-align: center;
             z-index: 10;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 320px;
         }
 
         button {
@@ -36,79 +42,174 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
             transition: transform 0.2s, background-color 0.2s;
+            width: 100%;
         }
 
-        button:hover {
-            transform: scale(1.05);
-            background-color: #00e67a;
+        button:hover { transform: scale(1.02); background-color: #00e67a; }
+        button:active { transform: scale(0.98); }
+
+        .control-panel {
+            display: none; /* Hidden until microphone is started */
+            margin-top: 20px;
+            text-align: left;
         }
 
-        button:active {
-            transform: scale(0.95);
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #aaaaaa;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #00ff88;
+        }
+
+        /* Volume Meter Styling */
+        .meter-container {
+            width: 100%;
+            height: 15px;
+            background-color: #333333;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .meter-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #00ff88;
+            transition: width 0.05s linear;
+        }
+
+        /* Threshold line overlay on the meter */
+        .threshold-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #ff0055;
         }
 
         .status {
-            margin-top: 20px;
-            font-size: 1.1rem;
-            color: #aaaaaa;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #888888;
         }
 
-        /* Flash class applied to body via JS */
+        /* Flash effect */
         body.flash {
             background-color: #ff0055;
-            transition: none; /* Instant bright flash */
+            transition: none;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Snap & Clap Detector</h1>
-        <p>Click the button below to start monitoring your microphone.</p>
-        <button id="startButton">Start Listening</button>
-        <div id="status" class="status">Microphone: Idle</div>
+        <h1 style="margin-top:0; font-size: 1.8rem;">Snap Detector</h1>
+        <button id="startButton">Start Microphone</button>
+        
+        <div id="controlPanel" class="control-panel">
+            <div class="control-group">
+                <div style="display: flex; justify-content: space-between;">
+                    <label for="sensitivitySlider">Sensitivity</label>
+                    <span id="sensitivityValue" style="font-size: 0.9rem; color: #00ff88;">50%</span>
+                </div>
+                <!-- Slider values are flipped: High sensitivity means a LOW threshold value -->
+                <input type="range" id="sensitivitySlider" min="5" max="150" value="75">
+            </div>
+
+            <div class="control-group">
+                <label>Live Volume vs Trigger Threshold (Red Line)</label>
+                <div class="meter-container">
+                    <div id="meterBar" class="meter-bar"></div>
+                    <div id="thresholdLine" class="threshold-line"></div>
+                </div>
+            </div>
+            
+            <div id="status" class="status">Listening...</div>
+        </div>
     </div>
 
     <script>
         const startButton = document.getElementById('startButton');
+        const controlPanel = document.getElementById('controlPanel');
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        const meterBar = document.getElementById('meterBar');
+        const thresholdLine = document.getElementById('thresholdLine');
         const statusText = document.getElementById('status');
         
         let audioContext;
         let analyser;
         let microphone;
-        let javascriptNode;
         
-        // Configuration thresholds
-        const SNAP_THRESHOLD = 45; // How loud the sound must be (0-255)
-        const COOLDOWN_TIME = 300; // Milliseconds to wait before detecting the next snap
+        // Cooldown mechanism to prevent double-firing
+        const COOLDOWN_TIME = 300; 
         let lastTriggerTime = 0;
 
+        // Calculate Audio Threshold from Slider
+        // Low slider value = High threshold (Less sensitive)
+        // High slider value = Low threshold (More sensitive)
+        function getThreshold() {
+            const maxSlider = parseInt(sensitivitySlider.max);
+            const minSlider = parseInt(sensitivitySlider.min);
+            const sliderVal = parseInt(sensitivitySlider.value);
+            
+            // Invert the value: 155 is quietest sound needed (low sensitivity), 10 is loudest (high sensitivity)
+            return (maxSlider + minSlider) - sliderVal;
+        }
+
+        // Update UI visuals for slider settings
+        function updateSliderUI() {
+            const max = sensitivitySlider.max;
+            const min = sensitivitySlider.min;
+            const val = sensitivitySlider.value;
+            
+            // Calculate a percentage to show the user
+            const percent = Math.round(((val - min) / (max - min)) * 100);
+            sensitivityValue.innerText = percent + "%";
+
+            // Position the red threshold line visually on our 0-255 scaling meter
+            const currentThreshold = getThreshold();
+            const thresholdPercent = (currentThreshold / 255) * 100;
+            thresholdLine.style.left = thresholdPercent + "%";
+        }
+
+        sensitivitySlider.addEventListener('input', updateSliderUI);
+
         startButton.addEventListener('click', async () => {
-            // Browser security requires a user gesture to start audio
             if (audioContext) return; 
 
             try {
-                // 1. Request microphone access
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                statusText.innerText = "Microphone: Listening...";
+                
+                // Switch UI panels
                 startButton.style.display = 'none';
+                controlPanel.style.display = 'block';
+                updateSliderUI();
 
-                // 2. Set up Web Audio API pipeline
+                // Setup Audio Pipeline
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256; // Small buffer for fast, real-time responses
+                analyser.fftSize = 256; 
 
                 microphone = audioContext.createMediaStreamSource(stream);
                 microphone.connect(analyser);
 
-                // 3. Monitor audio frames continuously
                 const bufferLength = analyser.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
 
                 function checkAudio() {
                     analyser.getByteFrequencyData(dataArray);
 
-                    // Find the loudest frequency in the current frame
+                    // Grab peak volume frequency out of the data chunk
                     let maxVolume = 0;
                     for (let i = 0; i < bufferLength; i++) {
                         if (dataArray[i] > maxVolume) {
@@ -116,9 +217,15 @@
                         }
                     }
 
-                    // 4. Threshold and cooldown logic
+                    // Render volume changes to the green meter bar
+                    const volumePercent = (maxVolume / 255) * 100;
+                    meterBar.style.width = volumePercent + '%';
+
+                    // Evaluate thresholds
+                    const targetThreshold = getThreshold();
                     const currentTime = Date.now();
-                    if (maxVolume > SNAP_THRESHOLD && (currentTime - lastTriggerTime) > COOLDOWN_TIME) {
+                    
+                    if (maxVolume > targetThreshold && (currentTime - lastTriggerTime) > COOLDOWN_TIME) {
                         triggerAction();
                         lastTriggerTime = currentTime;
                     }
@@ -129,18 +236,13 @@
                 checkAudio();
 
             } catch (err) {
-                console.error('Error accessing microphone:', err);
-                statusText.innerText = "Error: Microphone access denied.";
-                statusText.style.color = "#ff4444";
+                console.error('Microphone Error:', err);
+                alert('Could not access microphone. Ensure you are running this via a server (http://) and have granted permissions.');
             }
         });
 
-        // 5. The "Something" that happens
         function triggerAction() {
-            // Add flash class to instantly change background
             document.body.classList.add('flash');
-            
-            // Remove it shortly after to create a pulse effect
             setTimeout(() => {
                 document.body.classList.remove('flash');
             }, 100);
