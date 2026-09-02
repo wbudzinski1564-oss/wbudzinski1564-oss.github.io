@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snap Detector with Sensitivity Control</title>
+    <title>Rifle Click Detector</title>
     <style>
         body {
             margin: 0;
@@ -13,98 +13,76 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            background-color: #121214;
+            color: #e4e4e7;
             font-family: system-ui, -apple-system, sans-serif;
             transition: background-color 0.1s ease-out;
-            overflow: hidden;
         }
 
         .container {
             text-align: center;
-            z-index: 10;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 30px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 320px;
+            background: #1c1c1f;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #2d2d30;
+            width: 340px;
         }
 
         button {
-            padding: 15px 30px;
+            padding: 16px 32px;
             font-size: 1.2rem;
-            font-weight: bold;
+            font-weight: 700;
             border: none;
-            border-radius: 50px;
-            background-color: #00ff88;
-            color: #000000;
+            border-radius: 12px;
+            background-color: #3b82f6;
+            color: white;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
-            transition: transform 0.2s, background-color 0.2s;
+            transition: transform 0.1s, background-color 0.2s;
             width: 100%;
         }
 
-        button:hover { transform: scale(1.02); background-color: #00e67a; }
+        button:hover { background-color: #2563eb; }
         button:active { transform: scale(0.98); }
 
-        .control-panel {
-            display: none; /* Hidden until microphone is started */
-            margin-top: 20px;
+        .dashboard {
+            display: none;
+            margin-top: 24px;
             text-align: left;
         }
 
-        .control-group {
-            margin-bottom: 20px;
+        .metric {
+            background: #111113;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #27272a;
         }
 
-        label {
-            display: block;
-            font-size: 0.9rem;
-            color: #aaaaaa;
-            margin-bottom: 8px;
+        .metric-title {
+            font-size: 0.8rem;
+            color: #a1a1aa;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        input[type="range"] {
-            width: 100%;
-            accent-color: #00ff88;
-        }
-
-        /* Volume Meter Styling */
-        .meter-container {
-            width: 100%;
-            height: 15px;
-            background-color: #333333;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .meter-bar {
-            height: 100%;
-            width: 0%;
-            background-color: #00ff88;
-            transition: width 0.05s linear;
-        }
-
-        /* Threshold line overlay on the meter */
-        .threshold-line {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #ff0055;
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-top: 4px;
         }
 
         .status {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #888888;
+            text-align: center;
+            color: #22c55e;
+            font-weight: 600;
+            margin-top: 16px;
+            font-size: 0.95rem;
         }
 
-        /* Flash effect */
-        body.flash {
-            background-color: #ff0055;
+        body.shot-detected {
+            background-color: #22c55e;
             transition: none;
         }
     </style>
@@ -112,140 +90,116 @@
 <body>
 
     <div class="container">
-        <h1 style="margin-top:0; font-size: 1.8rem;">Snap Detector</h1>
-        <button id="startButton">Start Microphone</button>
+        <h2 style="margin-top:0; font-size: 1.6rem; letter-spacing: -0.02em;">Rifle Click Detector</h2>
+        <p style="color:#a1a1aa; font-size:0.9rem; margin-bottom:24px;">Filters out reload mechanical noises. Optimised for striker/hammer clicks.</p>
         
-        <div id="controlPanel" class="control-panel">
-            <div class="control-group">
-                <div style="display: flex; justify-content: space-between;">
-                    <label for="sensitivitySlider">Sensitivity</label>
-                    <span id="sensitivityValue" style="font-size: 0.9rem; color: #00ff88;">50%</span>
-                </div>
-                <!-- Slider values are flipped: High sensitivity means a LOW threshold value -->
-                <input type="range" id="sensitivitySlider" min="5" max="150" value="75">
+        <button id="initBtn">Initialise System</button>
+        
+        <div id="dashboard" class="dashboard">
+            <div class="metric">
+                <div class="metric-title">High-Freq Treble Output (Filtered)</div>
+                <div class="metric-value" id="liveVolume">0</div>
             </div>
-
-            <div class="control-group">
-                <label>Live Volume vs Trigger Threshold (Red Line)</label>
-                <div class="meter-container">
-                    <div id="meterBar" class="meter-bar"></div>
-                    <div id="thresholdLine" class="threshold-line"></div>
-                </div>
+            <div class="metric">
+                <div class="metric-title">Instantaneous Spike Velocity</div>
+                <div class="metric-value" id="liveDelta">0</div>
             </div>
-            
-            <div id="status" class="status">Listening...</div>
+            <div class="status">🎯 Monitoring Audio Stream...</div>
         </div>
     </div>
 
     <script>
-        const startButton = document.getElementById('startButton');
-        const controlPanel = document.getElementById('controlPanel');
-        const sensitivitySlider = document.getElementById('sensitivitySlider');
-        const sensitivityValue = document.getElementById('sensitivityValue');
-        const meterBar = document.getElementById('meterBar');
-        const thresholdLine = document.getElementById('thresholdLine');
-        const statusText = document.getElementById('status');
+        const initBtn = document.getElementById('initBtn');
+        const dashboard = document.getElementById('dashboard');
+        const liveVolumeUi = document.getElementById('liveVolume');
+        const liveDeltaUi = document.getElementById('liveDelta');
+
+        let audioCtx, analyser, dataArray;
         
-        let audioContext;
-        let analyser;
-        let microphone;
-        
-        // Cooldown mechanism to prevent double-firing
-        const COOLDOWN_TIME = 300; 
+        // --- CALIBRATION PARAMETERS ---
+        // Click signatures require massive high-end energy jumps over tiny periods
+        const SPIKE_VELOCITY_THRESHOLD = 55; // Sudden spike magnitude 
+        const FILTER_CUTOFF_FREQ = 4500;       // Strip everything under 4.5kHz (reloads)
+        const COOL_DOWN = 400;                // Lockout window (ms)
+
+        let previousVolume = 0;
         let lastTriggerTime = 0;
 
-        // Calculate Audio Threshold from Slider
-        // Low slider value = High threshold (Less sensitive)
-        // High slider value = Low threshold (More sensitive)
-        function getThreshold() {
-            const maxSlider = parseInt(sensitivitySlider.max);
-            const minSlider = parseInt(sensitivitySlider.min);
-            const sliderVal = parseInt(sensitivitySlider.value);
-            
-            // Invert the value: 155 is quietest sound needed (low sensitivity), 10 is loudest (high sensitivity)
-            return (maxSlider + minSlider) - sliderVal;
-        }
-
-        // Update UI visuals for slider settings
-        function updateSliderUI() {
-            const max = sensitivitySlider.max;
-            const min = sensitivitySlider.min;
-            const val = sensitivitySlider.value;
-            
-            // Calculate a percentage to show the user
-            const percent = Math.round(((val - min) / (max - min)) * 100);
-            sensitivityValue.innerText = percent + "%";
-
-            // Position the red threshold line visually on our 0-255 scaling meter
-            const currentThreshold = getThreshold();
-            const thresholdPercent = (currentThreshold / 255) * 100;
-            thresholdLine.style.left = thresholdPercent + "%";
-        }
-
-        sensitivitySlider.addEventListener('input', updateSliderUI);
-
-        startButton.addEventListener('click', async () => {
-            if (audioContext) return; 
-
+        initBtn.addEventListener('click', async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false, // Must disable browser filtering to catch rapid transients
+                        autoGainControl: false
+                    } 
+                });
+
+                initBtn.style.display = 'none';
+                dashboard.style.display = 'block';
+
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioCtx.createMediaStreamSource(stream);
+
+                // LAYER 1: High-Pass hardware filtering
+                const highPassFilter = audioCtx.createBiquadFilter();
+                highPassFilter.type = "highpass";
+                highPassFilter.frequency.value = FILTER_CUTOFF_FREQ; 
+
+                // LAYER 2: Spectral Analysis setup
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256; // Short window size for rapid snapshot speeds
                 
-                // Switch UI panels
-                startButton.style.display = 'none';
-                controlPanel.style.display = 'block';
-                updateSliderUI();
-
-                // Setup Audio Pipeline
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256; 
-
-                microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
+                // Route stream: Mic -> Treble Filter -> Spectral Analyser
+                source.connect(highPassFilter);
+                highPassFilter.connect(analyser);
 
                 const bufferLength = analyser.frequencyBinCount;
-                const dataArray = new Uint8Array(bufferLength);
+                dataArray = new Uint8Array(bufferLength);
 
-                function checkAudio() {
-                    analyser.getByteFrequencyData(dataArray);
-
-                    // Grab peak volume frequency out of the data chunk
-                    let maxVolume = 0;
-                    for (let i = 0; i < bufferLength; i++) {
-                        if (dataArray[i] > maxVolume) {
-                            maxVolume = dataArray[i];
-                        }
-                    }
-
-                    // Render volume changes to the green meter bar
-                    const volumePercent = (maxVolume / 255) * 100;
-                    meterBar.style.width = volumePercent + '%';
-
-                    // Evaluate thresholds
-                    const targetThreshold = getThreshold();
-                    const currentTime = Date.now();
-                    
-                    if (maxVolume > targetThreshold && (currentTime - lastTriggerTime) > COOLDOWN_TIME) {
-                        triggerAction();
-                        lastTriggerTime = currentTime;
-                    }
-
-                    requestAnimationFrame(checkAudio);
-                }
-
-                checkAudio();
-
+                processAudioProcessingLoop();
             } catch (err) {
-                console.error('Microphone Error:', err);
-                alert('Could not access microphone. Ensure you are running this via a server (http://) and have granted permissions.');
+                alert('Audio subsystem access denied or unavailable.');
+                console.error(err);
             }
         });
 
-        function triggerAction() {
-            document.body.classList.add('flash');
+        function processAudioProcessingLoop() {
+            analyser.getByteFrequencyData(dataArray);
+
+            // Compute peak amplitude inside the isolated treble spectrum
+            let highFreqPeak = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                if (dataArray[i] > highFreqPeak) {
+                    highFreqPeak = dataArray[i];
+                }
+            }
+
+            // LAYER 3: Calculate velocity (how fast did it go from quiet to loud?)
+            let spikeVelocity = highFreqPeak - previousVolume;
+            
+            // Render Telemetry
+            liveVolumeUi.innerText = highFreqPeak;
+            liveDeltaUi.innerText = spikeVelocity > 0 ? spikeVelocity : 0;
+
+            const now = Date.now();
+            
+            // Evaluation execution criteria
+            if (spikeVelocity > SPIKE_VELOCITY_THRESHOLD && (now - lastTriggerTime) > COOL_DOWN) {
+                executeAction();
+                lastTriggerTime = now;
+            }
+
+            // Save historical volume context for next delta tick
+            previousVolume = highFreqPeak;
+            requestAnimationFrame(processAudioProcessingLoop);
+        }
+
+        function executeAction() {
+            document.body.classList.add('shot-detected');
             setTimeout(() => {
-                document.body.classList.remove('flash');
-            }, 100);
+                document.body.classList.remove('shot-detected');
+            }, 80);
         }
     </script>
 </body>
