@@ -2,13 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Dry Fire</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             margin: 0;
             padding: 0;
             height: 100vh;
+            width: 100vw;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -17,21 +22,25 @@
             color: #1c1917;
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Setup Panel Layer */
+        /* Centering Overhaul for Setup Panel */
         .setup-panel {
             background: #1c1917;
             color: #f5f5f4;
-            padding: 20px;
+            padding: 24px;
             border-radius: 16px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
             border: 1px solid #2e2a24;
             width: 85vw;
-            max-width: 440px;
-            box-sizing: border-box;
+            max-width: 400px;
             z-index: 100;
             text-align: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Perfect absolute geometric center */
         }
 
         button {
@@ -45,40 +54,76 @@
             cursor: pointer;
             transition: transform 0.1s, background-color 0.2s;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 15px;
         }
 
         button:hover { background-color: #dc2626; }
         button:active { transform: scale(0.98); }
 
-        .control-group {
-            margin-top: 15px;
-            background: #141210;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid #2e2a24;
-            text-align: left;
+        /* Centering Overhaul for Live Target View Screen */
+        .target-view {
+            display: none; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
         }
 
-        .slider-header {
+        /* 1/2 Size Target Dot (45px) perfectly dead-centered */
+        .target-dot {
+            width: 45px;
+            height: 45px;
+            background-color: #000000;
+            border-radius: 50%;
+            transition: opacity 0.05s ease-out;
+            opacity: 1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Absolute pinpoint center */
+        }
+
+        .target-dot.hit {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Target HUD Controls (Moved Slider here) */
+        .target-controls {
+            position: absolute;
+            bottom: max(20px, env(safe-area-inset-bottom)); /* Respects iPhone home indicator bar */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(28, 25, 23, 0.9);
+            color: #f5f5f4;
+            padding: 12px 20px;
+            border-radius: 30px;
+            width: 80vw;
+            max-width: 450px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            gap: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
         }
 
-        label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #a8a29e;
+        .slider-label {
+            font-size: 0.75rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            color: #a8a29e;
+            white-space: nowrap;
         }
 
-        .value-display {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #f43f5e;
+        .slider-container-wrapper {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
         input[type="range"] {
@@ -89,12 +134,12 @@
 
         .meter-container {
             width: 100%;
-            height: 10px;
+            height: 4px;
             background-color: #292524;
-            border-radius: 6px;
+            border-radius: 2px;
             overflow: hidden;
             position: relative;
-            margin-top: 6px;
+            margin-top: 4px;
         }
 
         .meter-bar {
@@ -113,49 +158,32 @@
             box-shadow: 0 0 4px #fff;
         }
 
-        /* Practice Arena Target Components */
-        .target-view {
-            display: none; 
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
+        .value-display {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #f43f5e;
+            min-width: 25px;
+            text-align: right;
         }
 
-        .target-dot {
-            width: 90px;
-            height: 90px;
-            background-color: #000000;
-            border-radius: 50%;
-            transition: opacity 0.05s ease-out;
-            opacity: 1;
-        }
-
-        .target-dot.hit {
-            opacity: 0;
-            pointer-events: none;
-        }
-
+        /* Layout Back Navigation Gear button */
         .gear-btn {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: max(15px, env(safe-area-inset-top));
+            right: max(15px, env(safe-area-inset-right));
             background: none;
             border: none;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             cursor: pointer;
             width: auto;
             margin: 0;
             padding: 5px;
-            opacity: 0.4;
+            opacity: 0.3;
+            z-index: 20;
         }
-        .gear-btn:hover { opacity: 1; background: none; }
+        .gear-btn:hover { opacity: 0.8; }
 
-        /* Landscape Enforcement Display */
+        /* Orientation Enforcement Blocker Overlay */
         .rotation-blocker {
             display: none;
             position: fixed;
@@ -171,7 +199,6 @@
             align-items: center;
             text-align: center;
             padding: 20px;
-            box-sizing: border-box;
         }
 
         .phone-icon {
@@ -208,28 +235,30 @@
         <p style="color: #a8a29e; font-size: 0.9rem; max-width: 260px; margin: 0;">Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
+    <!-- First Page (Clean initialization page without slider) -->
     <div id="setupPanel" class="setup-panel">
-        <h2 style="margin:0 0 4px 0; font-size: 1.6rem; letter-spacing: -0.02em;">Dry Fire</h2>
-        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 15px 0;">Calibrate mic sensitivity, lock landscape orientation, and align sights.</p>
-        
-        <div class="control-group">
-            <div class="slider-header">
-                <label for="spikeSlider">Spike Threshold (Delta)</label>
-                <span id="spikeVal" class="value-display">90</span>
-            </div>
-            <input type="range" id="spikeSlider" min="20" max="150" value="90">
-            <div class="meter-container">
-                <div id="deltaBar" class="meter-bar"></div>
-                <div id="deltaThresholdLine" class="threshold-line"></div>
-            </div>
-        </div>
-
+        <h2 style="margin:0 0 4px 0; font-size: 1.8rem; letter-spacing: -0.02em;">Dry Fire</h2>
+        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 10px 0;">Tap begin to launch the training center target frame.</p>
         <button id="beginBtn">Begin</button>
     </div>
 
+    <!-- Active Practice Arena (Now contains the calibration slider layout) -->
     <div id="targetView" class="target-view">
         <button id="gearBtn" class="gear-btn">⚙️</button>
+        
         <div id="targetDot" class="target-dot"></div>
+
+        <div class="target-controls">
+            <span class="slider-label">Sens</span>
+            <div class="slider-container-wrapper">
+                <input type="range" id="spikeSlider" min="20" max="150" value="90">
+                <div class="meter-container">
+                    <div id="deltaBar" class="meter-bar"></div>
+                    <div id="deltaThresholdLine" class="threshold-line"></div>
+                </div>
+            </div>
+            <span id="spikeVal" class="value-display">90</span>
+        </div>
     </div>
     <script>
         const setupPanel = document.getElementById('setupPanel');
@@ -248,8 +277,8 @@
         let lastTriggerTime = 0;
         let systemInitialized = false;
         
-        const RESPAWN_DELAY = 2000; // 2 seconds dot suppression window
-        const HARDCODED_FREQ = 9000; // Structural 9kHz sound filter wall
+        const RESPAWN_DELAY = 2000; 
+        const HARDCODED_FREQ = 9000; 
 
         function updateParameters() {
             spikeVal.innerText = spikeSlider.value;
@@ -266,7 +295,7 @@
             }
             if (systemInitialized) {
                 setupPanel.style.display = 'none';
-                targetView.style.display = 'flex';
+                targetView.style.display = 'block';
             }
         });
 
@@ -303,7 +332,7 @@
 
                 processAudioLoop();
             } catch (err) {
-                alert('Microphone access denied. Please verify Safari browser app permissions.');
+                alert('Microphone access denied. Please verify Safari browser app configuration parameters.');
             }
         }
 
@@ -320,6 +349,7 @@
             let spikeVelocity = highFreqPeak - previousVolume;
             if (spikeVelocity < 0) spikeVelocity = 0;
 
+            // Continually populate telemetry calibration stats onto the target HUD bar
             const deltaPct = (spikeVelocity / 150) * 100;
             deltaBar.style.width = Math.min(deltaPct, 100) + '%';
 
