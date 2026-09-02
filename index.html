@@ -9,6 +9,7 @@
     <style>
         * {
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         
         html, body {
@@ -20,10 +21,9 @@
             color: #1c1917;
             font-family: system-ui, -apple-system, sans-serif;
             overflow: hidden;
-            position: fixed; /* Prevents bounce scrolling or layout clipping */
+            position: fixed; 
         }
 
-        /* Fullscreen Layout Engine */
         .page-layer {
             position: absolute;
             top: 0;
@@ -35,7 +35,7 @@
             align-items: center;
         }
 
-        /* Initial Entry Configuration Frame */
+        /* Initial Setup Overlay */
         .setup-panel {
             background: #1c1917;
             color: #f5f5f4;
@@ -66,13 +66,12 @@
         button:hover { background-color: #dc2626; }
         button:active { transform: scale(0.98); }
 
-        /* Active Training Field Canvas */
         .target-view {
             display: none; 
             z-index: 10;
         }
 
-        /* 1/2 Size Target Dot (45px) perfectly dead-centered */
+        /* Condensed 45px Target Dot */
         .target-dot {
             width: 45px;
             height: 45px;
@@ -87,70 +86,71 @@
             pointer-events: none;
         }
 
-        /* FIXED: Moved to top center and completely clear of any phone notches/bezels */
+        /* CONDENSED HUD: Micro-sized, low-profile top bar configuration */
         .target-controls-top-hub {
             position: absolute;
-            top: max(15px, env(safe-area-inset-top)); 
+            top: max(10px, env(safe-area-inset-top)); 
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(28, 25, 23, 0.96);
+            background: rgba(20, 18, 16, 0.95);
             color: #f5f5f4;
-            padding: 10px 20px;
-            border-radius: 30px;
-            width: 90vw;
-            max-width: 520px;
+            padding: 6px 16px;
+            border-radius: 40px;
+            width: auto;
+            min-width: 280px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            transition: opacity 0.4s ease, visibility 0.4s;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.12);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
             opacity: 1;
-            visibility: visible;
             z-index: 30;
         }
 
+        /* Smooth fade-out translation */
         .target-controls-top-hub.hidden {
             opacity: 0;
-            visibility: hidden;
+            pointer-events: none;
+            transform: translate(-50%, -10px);
         }
 
-        /* Internal layout elements for the unified top hub */
         .streak-pill-text {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            color: #f5f5f4;
+            color: #e7e5e4;
             white-space: nowrap;
         }
 
         .slider-label {
-            font-size: 0.7rem;
-            font-weight: 700;
+            font-size: 0.65rem;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #a8a29e;
+            color: #78716c;
         }
 
         .slider-flex-container {
-            flex-grow: 1;
+            width: 110px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            max-width: 220px;
         }
 
         input[type="range"] {
             width: 100%;
             accent-color: #ef4444;
             margin: 0;
-            padding: 6px 0;
+            padding: 4px 0;
+            background: transparent;
         }
 
         .meter-container {
             width: 100%;
-            height: 4px;
+            height: 3px;
             background-color: #292524;
             border-radius: 2px;
             overflow: hidden;
@@ -171,30 +171,28 @@
             bottom: 0;
             width: 2px;
             background-color: #ffffff;
-            box-shadow: 0 0 4px #fff;
         }
 
         .value-display {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: #f43f5e;
-            min-width: 25px;
+            min-width: 22px;
             text-align: right;
         }
 
         .inline-gear-btn {
             background: none;
             border: none;
-            font-size: 1.1rem;
+            font-size: 1rem;
             cursor: pointer;
-            padding: 0 0 0 5px;
+            padding: 2px;
             margin: 0;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            opacity: 0.4;
         }
         .inline-gear-btn:hover { opacity: 1; }
 
-        /* Full Screen Rotation Guard Overlay */
+        /* Full Screen Landscape Blocker */
         .rotation-blocker {
             display: none;
             position: fixed;
@@ -246,7 +244,6 @@
         <p style="color: #a8a29e; font-size: 0.9rem; max-width: 260px; margin: 0;">Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
-    <!-- First Page Frame -->
     <div id="setupPanel" class="page-layer setup-panel">
         <div>
             <h2 style="margin:0 0 4px 0; font-size: 1.8rem; letter-spacing: -0.02em;">Dry Fire</h2>
@@ -256,13 +253,9 @@
         </div>
     </div>
 
-    <!-- Active Practice Arena Screen Container -->
     <div id="targetView" class="page-layer target-view">
-        
-        <!-- FIXED UNIFIED TOP HUD CONTROL BAR -->
         <div id="controlHud" class="target-controls-top-hub">
             <div id="streakCounter" class="streak-pill-text">🔥 0 days</div>
-            
             <div class="slider-label">Sens</div>
             <div class="slider-flex-container">
                 <input type="range" id="spikeSlider" min="20" max="150" value="90">
@@ -272,11 +265,8 @@
                 </div>
             </div>
             <span id="spikeVal" class="value-display">90</span>
-            
             <button id="gearBtn" class="inline-gear-btn">⚙️</button>
         </div>
-        
-        <!-- The Target Center Dot -->
         <div id="targetDot" class="target-dot"></div>
     </div>
     <script>
@@ -309,15 +299,29 @@
             resetHudTimeout();
         }
 
+        // Timer to manage hiding the HUD container
         function resetHudTimeout() {
             clearTimeout(hudTimeout);
             controlHud.classList.remove('hidden');
+            
+            // Hide the bar after 3 seconds of total input inactivity
             hudTimeout = setTimeout(() => {
                 if (targetView.style.display === 'flex') {
                     controlHud.classList.add('hidden');
                 }
-            }, 4000); 
+            }, 3000); 
         }
+
+        // FIXED APPLE INTERACTION LOCKOUT ENGINE
+        // Triggers blur immediately on finger release so iOS lets go of the element
+        spikeSlider.addEventListener('touchend', () => {
+            spikeSlider.blur();
+            resetHudTimeout();
+        });
+        spikeSlider.addEventListener('mouseup', () => {
+            spikeSlider.blur();
+            resetHudTimeout();
+        });
 
         spikeSlider.addEventListener('input', updateParameters);
         window.addEventListener('mousemove', resetHudTimeout);
