@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rifle Click Detector</title>
+    <title>Rifle Click Isolator</title>
     <style>
         body {
             margin: 0;
@@ -13,76 +13,112 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #121214;
-            color: #e4e4e7;
+            background-color: #0c0a09;
+            color: #f5f5f4;
             font-family: system-ui, -apple-system, sans-serif;
-            transition: background-color 0.1s ease-out;
+            transition: background-color 0.08s ease-out;
         }
 
         .container {
-            text-align: center;
-            background: #1c1c1f;
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 1px solid #2d2d30;
-            width: 340px;
+            background: #1c1917;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            border: 1px solid #2e2a24;
+            width: 360px;
+            box-sizing: border-box;
         }
 
         button {
             padding: 16px 32px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
             border: none;
             border-radius: 12px;
-            background-color: #3b82f6;
+            background-color: #ef4444;
             color: white;
             cursor: pointer;
             transition: transform 0.1s, background-color 0.2s;
             width: 100%;
         }
 
-        button:hover { background-color: #2563eb; }
+        button:hover { background-color: #dc2626; }
         button:active { transform: scale(0.98); }
 
         .dashboard {
             display: none;
-            margin-top: 24px;
-            text-align: left;
         }
 
-        .metric {
-            background: #111113;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            border: 1px solid #27272a;
+        .control-group {
+            margin-bottom: 20px;
+            background: #141210;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #2e2a24;
         }
 
-        .metric-title {
-            font-size: 0.8rem;
-            color: #a1a1aa;
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #a8a29e;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #38bdf8;
-            margin-top: 4px;
+        .value-display {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #f43f5e;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #ef4444;
+            margin: 0;
+        }
+
+        .meter-container {
+            width: 100%;
+            height: 12px;
+            background-color: #292524;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            margin-top: 6px;
+        }
+
+        .meter-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #f43f5e;
+            transition: width 0.03s linear;
+        }
+
+        .threshold-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #ffffff;
+            box-shadow: 0 0 4px #fff;
         }
 
         .status {
             text-align: center;
-            color: #22c55e;
-            font-weight: 600;
-            margin-top: 16px;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
+            color: #78716c;
+            margin-top: 15px;
         }
 
-        body.shot-detected {
-            background-color: #22c55e;
+        body.click-triggered {
+            background-color: #ef4444;
             transition: none;
         }
     </style>
@@ -90,84 +126,109 @@
 <body>
 
     <div class="container">
-        <h2 style="margin-top:0; font-size: 1.6rem; letter-spacing: -0.02em;">Rifle Click Detector</h2>
-        <p style="color:#a1a1aa; font-size:0.9rem; margin-bottom:24px;">Filters out reload mechanical noises. Optimised for striker/hammer clicks.</p>
+        <h2 style="margin:0 0 6px 0; font-size: 1.5rem; letter-spacing: -0.02em;">Acoustic Click Isolator</h2>
+        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 24px 0;">Fine-tune parameters to separate fast transients from sliding metallic friction.</p>
         
-        <button id="initBtn">Initialise System</button>
+        <button id="startBtn">Calibrate Microphone</button>
         
         <div id="dashboard" class="dashboard">
-            <div class="metric">
-                <div class="metric-title">High-Freq Treble Output (Filtered)</div>
-                <div class="metric-value" id="liveVolume">0</div>
+            <!-- Control 1: Velocity Spike Filter -->
+            <div class="control-group">
+                <div class="slider-header">
+                    <label for="spikeSlider">Spike Threshold (Delta)</label>
+                    <span id="spikeVal" class="value-display">60</span>
+                </div>
+                <input type="range" id="spikeSlider" min="20" max="150" value="60">
+                <div class="meter-container">
+                    <div id="deltaBar" class="meter-bar"></div>
+                    <div id="deltaThresholdLine" class="threshold-line"></div>
+                </div>
             </div>
-            <div class="metric">
-                <div class="metric-title">Instantaneous Spike Velocity</div>
-                <div class="metric-value" id="liveDelta">0</div>
+
+            <!-- Control 2: High Pass Filter Cutoff -->
+            <div class="control-group">
+                <div class="slider-header">
+                    <label for="freqSlider">Treble Cutoff Frequency</label>
+                    <span id="freqVal" class="value-display">5500 Hz</span>
+                </div>
+                <input type="range" id="freqSlider" min="2000" max="9000" step="250" value="5500">
+                <p style="font-size:0.75rem; color:#78716c; margin: 6px 0 0 0;">Raises wall to block deeper clunking reload sounds.</p>
             </div>
-            <div class="status">🎯 Monitoring Audio Stream...</div>
+            
+            <div class="status">⚡ Loop running at raw frame speed</div>
         </div>
     </div>
 
     <script>
-        const initBtn = document.getElementById('initBtn');
+        const startBtn = document.getElementById('startBtn');
         const dashboard = document.getElementById('dashboard');
-        const liveVolumeUi = document.getElementById('liveVolume');
-        const liveDeltaUi = document.getElementById('liveDelta');
+        const spikeSlider = document.getElementById('spikeSlider');
+        const spikeVal = document.getElementById('spikeVal');
+        const freqSlider = document.getElementById('freqSlider');
+        const freqVal = document.getElementById('freqVal');
+        const deltaBar = document.getElementById('deltaBar');
+        const deltaThresholdLine = document.getElementById('deltaThresholdLine');
 
-        let audioCtx, analyser, dataArray;
-        
-        // --- CALIBRATION PARAMETERS ---
-        // Click signatures require massive high-end energy jumps over tiny periods
-        const SPIKE_VELOCITY_THRESHOLD = 55; // Sudden spike magnitude 
-        const FILTER_CUTOFF_FREQ = 4500;       // Strip everything under 4.5kHz (reloads)
-        const COOL_DOWN = 400;                // Lockout window (ms)
-
+        let audioCtx, analyser, highPassFilter, dataArray;
         let previousVolume = 0;
         let lastTriggerTime = 0;
+        const COOLDOWN = 350; 
 
-        initBtn.addEventListener('click', async () => {
+        // Live parameter updates
+        function updateParameters() {
+            spikeVal.innerText = spikeSlider.value;
+            freqVal.innerText = freqSlider.value + " Hz";
+            
+            if (highPassFilter) {
+                highPassFilter.frequency.value = parseFloat(freqSlider.value);
+            }
+            
+            // Map threshold visually to 0-150 bar width scales
+            const pct = (spikeSlider.value / 150) * 100;
+            deltaThresholdLine.style.left = pct + "%";
+        }
+
+        spikeSlider.addEventListener('input', updateParameters);
+        freqSlider.addEventListener('input', updateParameters);
+
+        startBtn.addEventListener('click', async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: false,
-                        noiseSuppression: false, // Must disable browser filtering to catch rapid transients
+                        noiseSuppression: false, 
                         autoGainControl: false
                     } 
                 });
 
-                initBtn.style.display = 'none';
+                startBtn.style.display = 'none';
                 dashboard.style.display = 'block';
+                updateParameters();
 
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const source = audioCtx.createMediaStreamSource(stream);
 
-                // LAYER 1: High-Pass hardware filtering
-                const highPassFilter = audioCtx.createBiquadFilter();
+                highPassFilter = audioCtx.createBiquadFilter();
                 highPassFilter.type = "highpass";
-                highPassFilter.frequency.value = FILTER_CUTOFF_FREQ; 
+                highPassFilter.frequency.value = parseFloat(freqSlider.value); 
 
-                // LAYER 2: Spectral Analysis setup
                 analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; // Short window size for rapid snapshot speeds
+                analyser.fftSize = 256; // High time resolution
                 
-                // Route stream: Mic -> Treble Filter -> Spectral Analyser
                 source.connect(highPassFilter);
                 highPassFilter.connect(analyser);
 
-                const bufferLength = analyser.frequencyBinCount;
-                dataArray = new Uint8Array(bufferLength);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                processAudio();
 
-                processAudioProcessingLoop();
             } catch (err) {
-                alert('Audio subsystem access denied or unavailable.');
-                console.error(err);
+                alert('Audio configuration failed. Ensure secure context (HTTPS/Localhost).');
             }
         });
 
-        function processAudioProcessingLoop() {
+        function processAudio() {
             analyser.getByteFrequencyData(dataArray);
 
-            // Compute peak amplitude inside the isolated treble spectrum
             let highFreqPeak = 0;
             for (let i = 0; i < dataArray.length; i++) {
                 if (dataArray[i] > highFreqPeak) {
@@ -175,31 +236,29 @@
                 }
             }
 
-            // LAYER 3: Calculate velocity (how fast did it go from quiet to loud?)
+            // Delta evaluates how violently the loudness exploded frame-to-frame
             let spikeVelocity = highFreqPeak - previousVolume;
-            
-            // Render Telemetry
-            liveVolumeUi.innerText = highFreqPeak;
-            liveDeltaUi.innerText = spikeVelocity > 0 ? spikeVelocity : 0;
+            if (spikeVelocity < 0) spikeVelocity = 0;
+
+            // Render live velocity bar
+            const deltaPct = (spikeVelocity / 150) * 100;
+            deltaBar.style.width = Math.min(deltaPct, 100) + '%';
 
             const now = Date.now();
+            const activeThreshold = parseInt(spikeSlider.value);
             
-            // Evaluation execution criteria
-            if (spikeVelocity > SPIKE_VELOCITY_THRESHOLD && (now - lastTriggerTime) > COOL_DOWN) {
-                executeAction();
+            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > COOLDOWN) {
+                triggerVisual();
                 lastTriggerTime = now;
             }
 
-            // Save historical volume context for next delta tick
             previousVolume = highFreqPeak;
-            requestAnimationFrame(processAudioProcessingLoop);
+            requestAnimationFrame(processAudio);
         }
 
-        function executeAction() {
-            document.body.classList.add('shot-detected');
-            setTimeout(() => {
-                document.body.classList.remove('shot-detected');
-            }, 80);
+        function triggerVisual() {
+            document.body.classList.add('click-triggered');
+            setTimeout(() => document.body.classList.remove('click-triggered'), 70);
         }
     </script>
 </body>
