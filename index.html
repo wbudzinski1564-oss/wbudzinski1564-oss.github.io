@@ -25,7 +25,6 @@
             position: relative;
         }
 
-        /* Centering Overhaul for Setup Panel */
         .setup-panel {
             background: #1c1917;
             color: #f5f5f4;
@@ -40,7 +39,7 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Perfect absolute geometric center */
+            transform: translate(-50%, -50%);
         }
 
         button {
@@ -60,7 +59,6 @@
         button:hover { background-color: #dc2626; }
         button:active { transform: scale(0.98); }
 
-        /* Centering Overhaul for Live Target View Screen */
         .target-view {
             display: none; 
             position: absolute;
@@ -71,7 +69,6 @@
             z-index: 10;
         }
 
-        /* 1/2 Size Target Dot (45px) perfectly dead-centered */
         .target-dot {
             width: 45px;
             height: 45px;
@@ -82,7 +79,7 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Absolute pinpoint center */
+            transform: translate(-50%, -50%);
         }
 
         .target-dot.hit {
@@ -90,10 +87,29 @@
             pointer-events: none;
         }
 
-        /* Target HUD Controls (Moved Slider here) */
+        /* Streak HUD Display Element */
+        .streak-display {
+            position: absolute;
+            top: max(15px, env(safe-area-inset-top));
+            left: max(15px, env(safe-area-inset-left));
+            font-weight: 700;
+            font-size: 1.1rem;
+            background: rgba(28, 25, 23, 0.85);
+            color: #f5f5f4;
+            padding: 6px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 20;
+        }
+
+        /* Target HUD Control Overhaul with Fade Animation */
         .target-controls {
             position: absolute;
-            bottom: max(20px, env(safe-area-inset-bottom)); /* Respects iPhone home indicator bar */
+            bottom: max(20px, env(safe-area-inset-bottom));
             left: 50%;
             transform: translateX(-50%);
             background: rgba(28, 25, 23, 0.9);
@@ -108,6 +124,14 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             border: 1px solid rgba(255,255,255,0.1);
             backdrop-filter: blur(8px);
+            transition: opacity 0.4s ease, visibility 0.4s;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .target-controls.hidden {
+            opacity: 0;
+            visibility: hidden;
         }
 
         .slider-label {
@@ -166,7 +190,6 @@
             text-align: right;
         }
 
-        /* Layout Back Navigation Gear button */
         .gear-btn {
             position: absolute;
             top: max(15px, env(safe-area-inset-top));
@@ -183,7 +206,6 @@
         }
         .gear-btn:hover { opacity: 0.8; }
 
-        /* Orientation Enforcement Blocker Overlay */
         .rotation-blocker {
             display: none;
             position: fixed;
@@ -235,20 +257,23 @@
         <p style="color: #a8a29e; font-size: 0.9rem; max-width: 260px; margin: 0;">Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
-    <!-- First Page (Clean initialization page without slider) -->
     <div id="setupPanel" class="setup-panel">
         <h2 style="margin:0 0 4px 0; font-size: 1.8rem; letter-spacing: -0.02em;">Dry Fire</h2>
         <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 10px 0;">Tap begin to launch the training center target frame.</p>
+        <div id="welcomeStreak" style="font-size: 0.95rem; margin-bottom: 5px; color: #f43f5e; font-weight: bold;"></div>
         <button id="beginBtn">Begin</button>
     </div>
 
-    <!-- Active Practice Arena (Now contains the calibration slider layout) -->
     <div id="targetView" class="target-view">
+        <!-- Live Streak Display Counter Overlay -->
+        <div class="streak-display">
+            <span id="streakCounter">🔥 0 days</span>
+        </div>
+
         <button id="gearBtn" class="gear-btn">⚙️</button>
-        
         <div id="targetDot" class="target-dot"></div>
 
-        <div class="target-controls">
+        <div id="controlHud" class="target-controls">
             <span class="slider-label">Sens</span>
             <div class="slider-container-wrapper">
                 <input type="range" id="spikeSlider" min="20" max="150" value="90">
@@ -266,6 +291,9 @@
         const beginBtn = document.getElementById('beginBtn');
         const gearBtn = document.getElementById('gearBtn');
         const targetDot = document.getElementById('targetDot');
+        const controlHud = document.getElementById('controlHud');
+        const streakCounter = document.getElementById('streakCounter');
+        const welcomeStreak = document.getElementById('welcomeStreak');
         
         const spikeSlider = document.getElementById('spikeSlider');
         const spikeVal = document.getElementById('spikeVal');
@@ -276,6 +304,7 @@
         let previousVolume = 0;
         let lastTriggerTime = 0;
         let systemInitialized = false;
+        let hudTimeout;
         
         const RESPAWN_DELAY = 2000; 
         const HARDCODED_FREQ = 9000; 
@@ -284,10 +313,69 @@
             spikeVal.innerText = spikeSlider.value;
             const pct = (spikeSlider.value / 150) * 100;
             deltaThresholdLine.style.left = pct + "%";
+            resetHudTimeout(); // Keep HUD open while interaction occurs
+        }
+
+        // HUD Autohide Implementation
+        function resetHudTimeout() {
+            clearTimeout(hudTimeout);
+            controlHud.classList.remove('hidden');
+            hudTimeout = setTimeout(() => {
+                if (targetView.style.display === 'block') {
+                    controlHud.classList.add('hidden');
+                }
+            }, 4000); // UI fades out gracefully after 4 seconds of stillness
         }
 
         spikeSlider.addEventListener('input', updateParameters);
+        window.addEventListener('mousemove', resetHudTimeout);
+        window.addEventListener('touchstart', resetHudTimeout);
         updateParameters();
+
+        // -------------------------------------------------------------
+        // LOCALSTORAGE DAILY STREAK ENGINE 
+        // -------------------------------------------------------------
+        function checkAndRenderStreak(isNewHit = false) {
+            const todayStr = new Date().toDateString();
+            let storedStreak = parseInt(localStorage.getItem('df_streak_count')) || 0;
+            let lastDateStr = localStorage.getItem('df_last_practice_date');
+
+            if (!isNewHit) {
+                // Initial Application Startup Checks
+                if (lastDateStr) {
+                    const todayObj = new Date(todayStr);
+                    const lastObj = new Date(lastDateStr);
+                    const diffTime = Math.abs(todayObj - lastObj);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays > 1) {
+                        // User skipped an full practice calendar day. Clear records.
+                        storedStreak = 0;
+                        localStorage.setItem('df_streak_count', 0);
+                    }
+                }
+                
+                // Render text elements across landing nodes
+                if (storedStreak > 0) {
+                    welcomeStreak.innerText = `Current Practice Streak: 🔥 ${storedStreak} Days`;
+                }
+                streakCounter.innerText = `🔥 ${storedStreak} day${storedStreak !== 1 ? 's' : ''}`;
+                return;
+            }
+
+            // Execute update logic when a valid shot hit registers
+            if (lastDateStr !== todayStr) {
+                storedStreak += 1;
+                localStorage.setItem('df_streak_count', storedStreak);
+                localStorage.setItem('df_last_practice_date', todayStr);
+                
+                // Update live counters immediately
+                streakCounter.innerText = `🔥 ${storedStreak} day${storedStreak !== 1 ? 's' : ''}`;
+            }
+        }
+
+        // Initialize state arrays on startup load
+        checkAndRenderStreak();
 
         beginBtn.addEventListener('click', async () => {
             if (!systemInitialized) {
@@ -296,22 +384,21 @@
             if (systemInitialized) {
                 setupPanel.style.display = 'none';
                 targetView.style.display = 'block';
+                resetHudTimeout();
             }
         });
 
         gearBtn.addEventListener('click', () => {
             targetView.style.display = 'none';
             setupPanel.style.display = 'block';
+            clearTimeout(hudTimeout);
+            controlHud.classList.remove('hidden');
         });
 
         async function initializeAudioSubsystem() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false, 
-                        autoGainControl: false
-                    } 
+                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
                 });
 
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
@@ -332,7 +419,7 @@
 
                 processAudioLoop();
             } catch (err) {
-                alert('Microphone access denied. Please verify Safari browser app configuration parameters.');
+                alert('Microphone access denied. Check device security controls.');
             }
         }
 
@@ -349,7 +436,6 @@
             let spikeVelocity = highFreqPeak - previousVolume;
             if (spikeVelocity < 0) spikeVelocity = 0;
 
-            // Continually populate telemetry calibration stats onto the target HUD bar
             const deltaPct = (spikeVelocity / 150) * 100;
             deltaBar.style.width = Math.min(deltaPct, 100) + '%';
 
@@ -367,8 +453,21 @@
 
         function triggerTargetHit() {
             targetDot.classList.add('hit');
+            
+            // Check and increment daily streak upon a successful target strike
+            checkAndRenderStreak(true);
+
             setTimeout(() => {
-                targetDot.classList.remove('hit');
+                targetDot.remove(); // Remove old dot to handle transitions cleanly
+                
+                // Spawn a fresh cleanly aligned dot back into absolute center position
+                const newDot = document.createElement('div');
+                newDot.id = 'targetDot';
+                newDot.className = 'target-dot';
+                targetView.appendChild(newDot);
+                
+                // Re-bind global element handles
+                window.targetDot = newDot; 
             }, RESPAWN_DELAY);
         }
     </script>
