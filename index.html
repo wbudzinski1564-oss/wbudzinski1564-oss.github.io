@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rifle Click Isolator</title>
+    <title>Rifle Click Isolator - High Range</title>
     <style>
         body {
             margin: 0;
@@ -127,7 +127,7 @@
 
     <div class="container">
         <h2 style="margin:0 0 6px 0; font-size: 1.5rem; letter-spacing: -0.02em;">Acoustic Click Isolator</h2>
-        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 24px 0;">Fine-tune parameters to separate fast transients from sliding metallic friction.</p>
+        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 24px 0;">Optimized for extreme ultra-high frequencies to completely bypass reloading friction.</p>
         
         <button id="startBtn">Calibrate Microphone</button>
         
@@ -136,23 +136,23 @@
             <div class="control-group">
                 <div class="slider-header">
                     <label for="spikeSlider">Spike Threshold (Delta)</label>
-                    <span id="spikeVal" class="value-display">60</span>
+                    <span id="spikeVal" class="value-display">90</span>
                 </div>
-                <input type="range" id="spikeSlider" min="20" max="150" value="60">
+                <input type="range" id="spikeSlider" min="20" max="150" value="90">
                 <div class="meter-container">
                     <div id="deltaBar" class="meter-bar"></div>
                     <div id="deltaThresholdLine" class="threshold-line"></div>
                 </div>
             </div>
 
-            <!-- Control 2: High Pass Filter Cutoff -->
+            <!-- Control 2: High Pass Filter Cutoff (8k - 20k) -->
             <div class="control-group">
                 <div class="slider-header">
                     <label for="freqSlider">Treble Cutoff Frequency</label>
-                    <span id="freqVal" class="value-display">5500 Hz</span>
+                    <span id="freqVal" class="value-display">9000 Hz</span>
                 </div>
-                <input type="range" id="freqSlider" min="2000" max="9000" step="250" value="5500">
-                <p style="font-size:0.75rem; color:#78716c; margin: 6px 0 0 0;">Raises wall to block deeper clunking reload sounds.</p>
+                <input type="range" id="freqSlider" min="8000" max="20000" step="250" value="9000">
+                <p style="font-size:0.75rem; color:#78716c; margin: 6px 0 0 0;">Blocks lower friction register. Note: Hardware mics limit top end at ~16k-20kHz.</p>
             </div>
             
             <div class="status">⚡ Loop running at raw frame speed</div>
@@ -174,7 +174,6 @@
         let lastTriggerTime = 0;
         const COOLDOWN = 350; 
 
-        // Live parameter updates
         function updateParameters() {
             spikeVal.innerText = spikeSlider.value;
             freqVal.innerText = freqSlider.value + " Hz";
@@ -205,7 +204,8 @@
                 dashboard.style.display = 'block';
                 updateParameters();
 
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                // Explicitly request 44.1kHz sampling rate or higher to support 20kHz monitoring
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
                 const source = audioCtx.createMediaStreamSource(stream);
 
                 highPassFilter = audioCtx.createBiquadFilter();
@@ -213,7 +213,7 @@
                 highPassFilter.frequency.value = parseFloat(freqSlider.value); 
 
                 analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; // High time resolution
+                analyser.fftSize = 256; 
                 
                 source.connect(highPassFilter);
                 highPassFilter.connect(analyser);
@@ -236,11 +236,9 @@
                 }
             }
 
-            // Delta evaluates how violently the loudness exploded frame-to-frame
             let spikeVelocity = highFreqPeak - previousVolume;
             if (spikeVelocity < 0) spikeVelocity = 0;
 
-            // Render live velocity bar
             const deltaPct = (spikeVelocity / 150) * 100;
             deltaBar.style.width = Math.min(deltaPct, 100) + '%';
 
