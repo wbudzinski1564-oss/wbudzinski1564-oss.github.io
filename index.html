@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rifle Click Isolator - High Range</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dry Fire</title>
     <style>
         body {
             margin: 0;
@@ -13,25 +13,30 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #0c0a09;
-            color: #f5f5f4;
+            background-color: #f5f5f4; 
+            color: #1c1917;
             font-family: system-ui, -apple-system, sans-serif;
-            transition: background-color 0.08s ease-out;
+            overflow: hidden;
         }
 
-        .container {
+        /* Setup Panel Layer */
+        .setup-panel {
             background: #1c1917;
-            padding: 30px;
-            border-radius: 20px;
+            color: #f5f5f4;
+            padding: 20px;
+            border-radius: 16px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
             border: 1px solid #2e2a24;
-            width: 360px;
+            width: 85vw;
+            max-width: 440px;
             box-sizing: border-box;
+            z-index: 100;
+            text-align: center;
         }
 
         button {
-            padding: 16px 32px;
-            font-size: 1.1rem;
+            padding: 14px 28px;
+            font-size: 1.2rem;
             font-weight: 700;
             border: none;
             border-radius: 12px;
@@ -40,32 +45,30 @@
             cursor: pointer;
             transition: transform 0.1s, background-color 0.2s;
             width: 100%;
+            margin-top: 10px;
         }
 
         button:hover { background-color: #dc2626; }
         button:active { transform: scale(0.98); }
 
-        .dashboard {
-            display: none;
-        }
-
         .control-group {
-            margin-bottom: 20px;
+            margin-top: 15px;
             background: #141210;
-            padding: 14px;
+            padding: 12px;
             border-radius: 12px;
             border: 1px solid #2e2a24;
+            text-align: left;
         }
 
         .slider-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
             color: #a8a29e;
             text-transform: uppercase;
@@ -86,7 +89,7 @@
 
         .meter-container {
             width: 100%;
-            height: 12px;
+            height: 10px;
             background-color: #292524;
             border-radius: 6px;
             overflow: hidden;
@@ -110,87 +113,169 @@
             box-shadow: 0 0 4px #fff;
         }
 
-        .status {
-            text-align: center;
-            font-size: 0.85rem;
-            color: #78716c;
-            margin-top: 15px;
+        /* Practice Arena Target Components */
+        .target-view {
+            display: none; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
         }
 
-        body.click-triggered {
-            background-color: #ef4444;
-            transition: none;
+        .target-dot {
+            width: 90px;
+            height: 90px;
+            background-color: #000000;
+            border-radius: 50%;
+            transition: opacity 0.05s ease-out;
+            opacity: 1;
+        }
+
+        .target-dot.hit {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .gear-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+            padding: 5px;
+            opacity: 0.4;
+        }
+        .gear-btn:hover { opacity: 1; background: none; }
+
+        /* Landscape Enforcement Display */
+        .rotation-blocker {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0c0a09;
+            color: #f5f5f4;
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .phone-icon {
+            width: 45px;
+            height: 75px;
+            border: 3px solid #f5f5f4;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+            animation: rotatePhone 2s ease-in-out infinite;
+        }
+
+        @keyframes rotatePhone {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(-90deg); }
+            100% { transform: rotate(-90deg); }
+        }
+
+        @media screen and (orientation: portrait) {
+            .setup-panel, .target-view {
+                display: none !important;
+            }
+            .rotation-blocker {
+                display: flex !important;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h2 style="margin:0 0 6px 0; font-size: 1.5rem; letter-spacing: -0.02em;">Acoustic Click Isolator</h2>
-        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 24px 0;">Optimized for extreme ultra-high frequencies to completely bypass reloading friction.</p>
-        
-        <button id="startBtn">Calibrate Microphone</button>
-        
-        <div id="dashboard" class="dashboard">
-            <!-- Control 1: Velocity Spike Filter -->
-            <div class="control-group">
-                <div class="slider-header">
-                    <label for="spikeSlider">Spike Threshold (Delta)</label>
-                    <span id="spikeVal" class="value-display">90</span>
-                </div>
-                <input type="range" id="spikeSlider" min="20" max="150" value="90">
-                <div class="meter-container">
-                    <div id="deltaBar" class="meter-bar"></div>
-                    <div id="deltaThresholdLine" class="threshold-line"></div>
-                </div>
-            </div>
-
-            <!-- Control 2: High Pass Filter Cutoff (8k - 20k) -->
-            <div class="control-group">
-                <div class="slider-header">
-                    <label for="freqSlider">Treble Cutoff Frequency</label>
-                    <span id="freqVal" class="value-display">9000 Hz</span>
-                </div>
-                <input type="range" id="freqSlider" min="8000" max="20000" step="250" value="9000">
-                <p style="font-size:0.75rem; color:#78716c; margin: 6px 0 0 0;">Blocks lower friction register. Note: Hardware mics limit top end at ~16k-20kHz.</p>
-            </div>
-            
-            <div class="status">⚡ Loop running at raw frame speed</div>
-        </div>
+    <div class="rotation-blocker">
+        <div class="phone-icon"></div>
+        <h3 style="margin: 0 0 8px 0; font-size: 1.3rem;">Please Rotate Device</h3>
+        <p style="color: #a8a29e; font-size: 0.9rem; max-width: 260px; margin: 0;">Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
+    <div id="setupPanel" class="setup-panel">
+        <h2 style="margin:0 0 4px 0; font-size: 1.6rem; letter-spacing: -0.02em;">Dry Fire</h2>
+        <p style="color:#a8a29e; font-size:0.85rem; margin:0 0 15px 0;">Calibrate mic sensitivity, lock landscape orientation, and align sights.</p>
+        
+        <div class="control-group">
+            <div class="slider-header">
+                <label for="spikeSlider">Spike Threshold (Delta)</label>
+                <span id="spikeVal" class="value-display">90</span>
+            </div>
+            <input type="range" id="spikeSlider" min="20" max="150" value="90">
+            <div class="meter-container">
+                <div id="deltaBar" class="meter-bar"></div>
+                <div id="deltaThresholdLine" class="threshold-line"></div>
+            </div>
+        </div>
+
+        <button id="beginBtn">Begin</button>
+    </div>
+
+    <div id="targetView" class="target-view">
+        <button id="gearBtn" class="gear-btn">⚙️</button>
+        <div id="targetDot" class="target-dot"></div>
+    </div>
     <script>
-        const startBtn = document.getElementById('startBtn');
-        const dashboard = document.getElementById('dashboard');
+        const setupPanel = document.getElementById('setupPanel');
+        const targetView = document.getElementById('targetView');
+        const beginBtn = document.getElementById('beginBtn');
+        const gearBtn = document.getElementById('gearBtn');
+        const targetDot = document.getElementById('targetDot');
+        
         const spikeSlider = document.getElementById('spikeSlider');
         const spikeVal = document.getElementById('spikeVal');
-        const freqSlider = document.getElementById('freqSlider');
-        const freqVal = document.getElementById('freqVal');
         const deltaBar = document.getElementById('deltaBar');
         const deltaThresholdLine = document.getElementById('deltaThresholdLine');
 
         let audioCtx, analyser, highPassFilter, dataArray;
         let previousVolume = 0;
         let lastTriggerTime = 0;
-        const COOLDOWN = 350; 
+        let systemInitialized = false;
+        
+        const RESPAWN_DELAY = 2000; // 2 seconds dot suppression window
+        const HARDCODED_FREQ = 9000; // Structural 9kHz sound filter wall
 
         function updateParameters() {
             spikeVal.innerText = spikeSlider.value;
-            freqVal.innerText = freqSlider.value + " Hz";
-            
-            if (highPassFilter) {
-                highPassFilter.frequency.value = parseFloat(freqSlider.value);
-            }
-            
-            // Map threshold visually to 0-150 bar width scales
             const pct = (spikeSlider.value / 150) * 100;
             deltaThresholdLine.style.left = pct + "%";
         }
 
         spikeSlider.addEventListener('input', updateParameters);
-        freqSlider.addEventListener('input', updateParameters);
+        updateParameters();
 
-        startBtn.addEventListener('click', async () => {
+        beginBtn.addEventListener('click', async () => {
+            if (!systemInitialized) {
+                await initializeAudioSubsystem();
+            }
+            if (systemInitialized) {
+                setupPanel.style.display = 'none';
+                targetView.style.display = 'flex';
+            }
+        });
+
+        gearBtn.addEventListener('click', () => {
+            targetView.style.display = 'none';
+            setupPanel.style.display = 'block';
+        });
+
+        async function initializeAudioSubsystem() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
@@ -200,17 +285,12 @@
                     } 
                 });
 
-                startBtn.style.display = 'none';
-                dashboard.style.display = 'block';
-                updateParameters();
-
-                // Explicitly request 44.1kHz sampling rate or higher to support 20kHz monitoring
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
                 const source = audioCtx.createMediaStreamSource(stream);
 
                 highPassFilter = audioCtx.createBiquadFilter();
                 highPassFilter.type = "highpass";
-                highPassFilter.frequency.value = parseFloat(freqSlider.value); 
+                highPassFilter.frequency.value = HARDCODED_FREQ; 
 
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 256; 
@@ -219,14 +299,15 @@
                 highPassFilter.connect(analyser);
 
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-                processAudio();
+                systemInitialized = true;
 
+                processAudioLoop();
             } catch (err) {
-                alert('Audio configuration failed. Ensure secure context (HTTPS/Localhost).');
+                alert('Microphone access denied. Please verify Safari browser app permissions.');
             }
-        });
+        }
 
-        function processAudio() {
+        function processAudioLoop() {
             analyser.getByteFrequencyData(dataArray);
 
             let highFreqPeak = 0;
@@ -244,19 +325,21 @@
 
             const now = Date.now();
             const activeThreshold = parseInt(spikeSlider.value);
-            
-            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > COOLDOWN) {
-                triggerVisual();
+
+            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > RESPAWN_DELAY) {
+                triggerTargetHit();
                 lastTriggerTime = now;
             }
 
             previousVolume = highFreqPeak;
-            requestAnimationFrame(processAudio);
+            requestAnimationFrame(processAudioLoop);
         }
 
-        function triggerVisual() {
-            document.body.classList.add('click-triggered');
-            setTimeout(() => document.body.classList.remove('click-triggered'), 70);
+        function triggerTargetHit() {
+            targetDot.classList.add('hit');
+            setTimeout(() => {
+                targetDot.classList.remove('hit');
+            }, RESPAWN_DELAY);
         }
     </script>
 </body>
