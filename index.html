@@ -9,6 +9,8 @@
     <style>
         * {
             box-sizing: border-box;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
         html, body {
@@ -35,7 +37,6 @@
             align-items: center;
         }
 
-        /* Full-width and full-height initial page layout */
         .setup-panel {
             background: #1c1917;
             color: #f5f5f4;
@@ -53,7 +54,45 @@
             margin: auto;
         }
 
-        button {
+        .selector-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a8a29e;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .segmented-control {
+            display: flex;
+            background: #141210;
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid #2e2a24;
+            margin-bottom: 25px;
+        }
+
+        .segment-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            background: transparent;
+            color: #a8a29e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 0;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .segment-btn.active {
+            background-color: #ef4444;
+            color: #ffffff;
+        }
+
+        .action-btn {
             padding: 16px 32px;
             font-size: 1.3rem;
             font-weight: 700;
@@ -64,15 +103,25 @@
             cursor: pointer;
             transition: transform 0.1s, background-color 0.2s;
             width: 100%;
-            margin-top: 20px;
         }
 
-        button:hover { background-color: #dc2626; }
-        button:active { transform: scale(0.98); }
+        .action-btn:hover { background-color: #dc2626; }
+        .action-btn:active { transform: scale(0.98); }
 
         .target-view {
             display: none; 
             z-index: 10;
+        }
+
+        .target-array {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 45px; 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
         .target-dot {
@@ -89,7 +138,6 @@
             pointer-events: none;
         }
 
-        /* Top Controls Hub Bar */
         .target-controls-top-hub {
             position: absolute;
             top: calc(12px + env(safe-area-inset-top)); 
@@ -119,14 +167,13 @@
             visibility: hidden;
         }
 
-        /* HARD-FIXED widths for side elements so they cannot squeeze the slider */
         .streak-pill-text {
             font-size: 0.9rem;
             font-weight: 700;
             color: #f5f5f4;
             white-space: nowrap;
             flex-shrink: 0;
-            width: 45px; /* Tiny fixed space */
+            width: 45px; 
         }
 
         .slider-label {
@@ -137,10 +184,9 @@
             color: #a8a29e;
             white-space: nowrap;
             flex-shrink: 0;
-            width: 42px; /* Tiny fixed space */
+            width: 42px; 
         }
 
-        /* FIXED: Slider flex container forced to absorb all available space */
         .slider-flex-container {
             flex-grow: 1; 
             flex-shrink: 0;
@@ -156,6 +202,7 @@
             margin: 0;
             padding: 8px 0;
             display: block;
+            background: transparent;
         }
 
         .meter-container {
@@ -175,39 +222,36 @@
             transition: width 0.03s linear;
         }
 
-        .threshold-line {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #ffffff;
-            box-shadow: 0 0 4px #fff;
-        }
-
         .value-display {
             font-size: 0.9rem;
             font-weight: 700;
             color: #f43f5e;
             text-align: right;
             flex-shrink: 0;
-            width: 32px; /* Tiny fixed space */
+            width: 32px; 
         }
 
-        .inline-gear-btn {
+        .back-arrow-btn {
             background: none;
             border: none;
-            font-size: 1.2rem;
+            color: #f5f5f4;
+            font-size: 1.4rem;
+            font-weight: bold;
             cursor: pointer;
-            padding: 2px;
+            padding: 0;
             margin: 0;
-            opacity: 0.5;
-            transition: opacity 0.2s;
+            opacity: 0.6;
+            transition: opacity 0.2s, transform 0.1s;
             flex-shrink: 0;
-            width: 25px; /* Tiny fixed space */
+            width: 25px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
-        .inline-gear-btn:hover { opacity: 1; }
+        .back-arrow-btn:hover { opacity: 1; }
+        back-arrow-btn:active { transform: scale(0.9); }
 
-        /* Full Screen Landscape Blocker */
         .rotation-blocker {
             display: none;
             position: fixed;
@@ -263,9 +307,16 @@
     <div id="setupPanel" class="page-layer setup-panel">
         <div class="setup-content">
             <h2 style="margin:0 0 6px 0; font-size: 2.2rem; letter-spacing: -0.02em;">Dry Fire</h2>
-            <p style="color:#a8a29e; font-size:0.95rem; margin:0 0 15px 0;">Tap begin to launch the training center target frame.</p>
-            <div id="welcomeStreak" style="font-size: 1.05rem; margin-bottom: 5px; color: #f43f5e; font-weight: bold;"></div>
-            <button id="beginBtn">Begin</button>
+            <p style="color:#a8a29e; font-size:0.95rem; margin:0 0 25px 0;">Select your shooting track order parameter and engage.</p>
+            
+            <span class="selector-label">Target Flow Direction</span>
+            <div class="segmented-control">
+                <button type="button" id="leftwardBtn" class="segment-btn active">Leftward</button>
+                <button type="button" id="rightwardBtn" class="segment-btn">Rightward</button>
+            </div>
+
+            <div id="welcomeStreak" style="font-size: 1.05rem; margin-bottom: 15px; color: #f43f5e; font-weight: bold;"></div>
+            <button id="beginBtn" class="action-btn">Begin</button>
         </div>
     </div>
 
@@ -276,32 +327,34 @@
             
             <div class="slider-label">Sens:</div>
             
-            <!-- Long Range Slider Container -->
             <div class="slider-flex-container">
                 <input type="range" id="spikeSlider" min="20" max="150" value="90">
                 <div class="meter-container">
                     <div id="deltaBar" class="meter-bar"></div>
-                    <div id="deltaThresholdLine" class="threshold-line"></div>
                 </div>
             </div>
             
             <span id="spikeVal" class="value-display">90</span>
             
-            <button id="gearBtn" class="inline-gear-btn">⚙️</button>
+            <button id="backBtn" class="back-arrow-btn">←</button>
         </div>
         
-        <div id="targetDot" class="target-dot"></div>
-    </div>
+        <div id="targetArray" class="target-array">
+            <div class="target-dot" id="target1"></div>
+            <div class="target-dot" id="target2"></div>
+            <div class="target-dot" id="target3"></div>
+            <div class="target-dot" id="target4"></div>
     <script>
         const setupPanel = document.getElementById('setupPanel');
         const targetView = document.getElementById('targetView');
         const beginBtn = document.getElementById('beginBtn');
-        const gearBtn = document.getElementById('gearBtn');
+        const backBtn = document.getElementById('backBtn');
+        const leftwardBtn = document.getElementById('leftwardBtn');
+        const rightwardBtn = document.getElementById('rightwardBtn');
         
         const spikeSlider = document.getElementById('spikeSlider');
         const spikeVal = document.getElementById('spikeVal');
         const deltaBar = document.getElementById('deltaBar');
-        const deltaThresholdLine = document.getElementById('deltaThresholdLine');
         const controlHud = document.getElementById('controlHud');
         const streakCounter = document.getElementById('streakCounter');
         const welcomeStreak = document.getElementById('welcomeStreak');
@@ -312,13 +365,16 @@
         let systemInitialized = false;
         let hudTimeout;
         
-        const RESPAWN_DELAY = 2000; 
+        const MIN_HIT_COOLDOWN = 250; 
+        const RESPAWN_DELAY = 1000;    
         const HARDCODED_FREQ = 9000; 
+
+        let currentDirection = 'leftward'; 
+        let targetIndexOrder =; 
+        let hitPointer = 0; 
 
         function updateParameters() {
             spikeVal.innerText = spikeSlider.value;
-            const pct = (spikeSlider.value / 150) * 100;
-            deltaThresholdLine.style.left = pct + "%";
             resetHudTimeout();
         }
 
@@ -331,6 +387,18 @@
                 }
             }, 4000); 
         }
+
+        leftwardBtn.addEventListener('click', () => {
+            currentDirection = 'leftward';
+            leftwardBtn.classList.add('active');
+            rightwardBtn.classList.remove('active');
+        });
+
+        rightwardBtn.addEventListener('click', () => {
+            currentDirection = 'rightward';
+            rightwardBtn.classList.add('active');
+            leftwardBtn.classList.remove('active');
+        });
 
         spikeSlider.addEventListener('input', updateParameters);
         window.addEventListener('mousemove', resetHudTimeout);
@@ -357,6 +425,8 @@
                 
                 if (storedStreak > 0) {
                     welcomeStreak.innerText = `Current Practice Streak: 🔥 ${storedStreak} Days`;
+                } else {
+                    welcomeStreak.innerText = '';
                 }
                 streakCounter.innerText = `🔥 ${storedStreak}`;
                 return;
@@ -373,6 +443,13 @@
         checkAndRenderStreak();
 
         beginBtn.addEventListener('click', async () => {
+            if (currentDirection === 'leftward') {
+                targetIndexOrder =; 
+            } else {
+                targetIndexOrder =; 
+            }
+            hitPointer = 0; 
+
             if (!systemInitialized) {
                 await initializeAudioSubsystem();
             }
@@ -383,11 +460,12 @@
             }
         });
 
-        gearBtn.addEventListener('click', () => {
+        backBtn.addEventListener('click', () => {
             targetView.style.display = 'none';
             setupPanel.style.display = 'flex';
             clearTimeout(hudTimeout);
             controlHud.classList.remove('hidden');
+            checkAndRenderStreak(); 
         });
 
         async function initializeAudioSubsystem() {
@@ -437,8 +515,8 @@
             const now = Date.now();
             const activeThreshold = parseInt(spikeSlider.value);
 
-            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > RESPAWN_DELAY) {
-                triggerTargetHit();
+            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > MIN_HIT_COOLDOWN && hitPointer < 5) {
+                triggerTargetArrayHit();
                 lastTriggerTime = now;
             }
 
@@ -446,21 +524,26 @@
             requestAnimationFrame(processAudioLoop);
         }
 
-        function triggerTargetHit() {
-            const targetDot = document.getElementById('targetDot');
-            if (targetDot) targetDot.classList.add('hit');
+        function triggerTargetArrayHit() {
+            const currentTargetID = targetIndexOrder[hitPointer];
+            const targetToMute = document.getElementById(`target${currentTargetID}`);
             
-            checkAndRenderStreak(true);
+            if (targetToMute) {
+                targetToMute.classList.add('hit');
+                hitPointer++;
+            }
 
-            setTimeout(() => {
-                const currentDot = document.getElementById('targetDot');
-                if (currentDot) currentDot.remove();
-                
-                const newDot = document.createElement('div');
-                newDot.id = 'targetDot';
-                newDot.className = 'target-dot';
-                targetView.appendChild(newDot);
-            }, RESPAWN_DELAY);
+            if (hitPointer === 5) {
+                checkAndRenderStreak(true);
+
+                setTimeout(() => {
+                    for (let i = 1; i <= 5; i++) {
+                        const target = document.getElementById(`target${i}`);
+                        if (target) target.classList.remove('hit');
+                    }
+                    hitPointer = 0; 
+                }, RESPAWN_DELAY);
+            }
         }
     </script>
 </body>
