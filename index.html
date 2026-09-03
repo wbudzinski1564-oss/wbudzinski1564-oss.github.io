@@ -16,6 +16,9 @@
         <p>Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
+    <!-- Full Screen Flash Signal Overlay (Flashes green when a sound matches) -->
+    <div id="screenFlashOverlay" class="screen-flash-overlay"></div>
+
     <!-- Screen 1: Main Menu -->
     <div id="setupPanel" class="page-layer setup-panel">
         <div class="setup-content">
@@ -31,47 +34,46 @@
         </div>
     </div>
 
-    <!-- Screen 2: Size & Sensitivity Calibration Layout -->
+    <!-- Screen 2: Sizing & Calibration View -->
     <div id="calibrationView" class="page-layer calibration-view">
-        <div class="calibration-controls">
-            <!-- Sizing Parameters UI Element -->
-            <div class="hud-group" style="width: 140px;">
-                <span class="slider-label">Target Size</span>
-                <input type="range" id="sizeSlider" min="15" max="100" value="45">
-            </div>
-
-            <!-- MOVED HERE: Dual Sensitivity Tracker Integration Hub -->
-            <div class="hud-group" style="flex-grow: 1;">
-                <div style="display:flex; justify-content:space-between; width:100%;">
-                    <span class="slider-label">Sensitivity</span>
-                    <span id="spikeVal" style="font-size:0.75rem; font-weight:700; color:#f43f5e;">90</span>
-                </div>
-                <div style="position:relative; width:100%;">
-                    <input type="range" id="spikeSlider" min="20" max="150" value="90">
-                    <div class="meter-container"><div id="deltaBar" class="meter-bar"></div></div>
-                </div>
-            </div>
-
+        <!-- CHANGED: Full Size Target Slider is now locked across the entire top -->
+        <div class="calibration-top-bar">
+            <span class="slider-label" style="color: #f5f5f4;">Adjust Target Size</span>
+            <input type="range" id="sizeSlider" min="15" max="100" value="45">
             <button id="startTrainingBtn" class="action-btn" style="margin:0; padding:10px 20px; font-size:1rem; width:auto; flex-shrink:0;">Start Training</button>
             <button id="calBackBtn" class="back-arrow-btn">↩</button>
         </div>
 
-        <!-- Live Flash Signal Node Indicators -->
-        <div id="triggerFlashIndicator" class="trigger-flash-box">MIC DETECTED</div>
+        <!-- Targets remain geometrically centered -->
         <div id="calibrationDot" class="target-dot"></div>
+
+        <!-- CHANGED: Sensitivity Slider moved into its own container below the target -->
+        <div class="calibration-bottom-bar">
+            <div style="display:flex; justify-content:space-between; width:100%; max-width:500px; margin: 0 auto 4px auto;">
+                <span class="slider-label" style="color:#f5f5f4;">Sensitivity</span>
+                <span id="spikeVal" style="font-size:0.85rem; font-weight:700; color:#f43f5e;">90</span>
+            </div>
+            <div style="position:relative; width:100%; max-width:500px; margin: 0 auto;">
+                <input type="range" id="spikeSlider" min="20" max="150" value="90">
+                <div class="meter-container"><div id="deltaBar" class="meter-bar"></div></div>
+            </div>
+        </div>
     </div>
 
-    <!-- Screen 3: Practice Arena Container Layout -->
+    <!-- Screen 3: Practice Arena -->
     <div id="targetView" class="page-layer target-view">
-        <!-- MASSIVE SHOT TIMER: Spans across the entire top viewport frame -->
+        <!-- Mega Timer Canvas Area -->
         <div id="shotTimerHud" class="shot-timer-mega-hud">0.00</div>
 
-        <!-- Shrunk Simplified Top Navigation Ribbon Layer -->
+        <!-- Navigation Ribbon Layer -->
         <div class="compact-nav-ribbon">
-            <div id="streakCounter" class="streak-mini-pill">🔥 0</div>
-            <button id="backBtn" class="back-arrow-btn" style="color:#1c1917;">↩</button>
+            <!-- CHANGED: Multiplied dimensions to make it 2x larger -->
+            <div id="streakCounter" class="streak-mini-pill large-nav-item">🔥 0</div>
+            <!-- CHANGED: Multiplied dimensions to make it 2x larger -->
+            <button id="backBtn" class="back-arrow-btn large-nav-item" style="color:#1c1917;">↩</button>
         </div>
         
+        <!-- CHANGED: Centered natively without floor offsets -->
         <div id="targetArray" class="target-array">
             <div class="target-dot" id="target1"></div>
             <div class="target-dot" id="target2"></div>
@@ -89,6 +91,14 @@
     }
     .page-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
     
+    /* NEW: Full Screen Flash Overlay Style Rules */
+    .screen-flash-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background-color: #22c55e; opacity: 0; pointer-events: none; z-index: 999;
+        transition: opacity 0.04s ease-out;
+    }
+    .screen-flash-overlay.active { opacity: 0.35; transition: none; }
+
     /* Screen 1 Dashboard Styles */
     .setup-panel { background: #1c1917; color: #f5f5f4; width: 100%; height: 100%; padding: 40px; text-align: center; z-index: 100; flex-direction: column; }
     .setup-content { max-width: 440px; width: 100%; margin: auto; }
@@ -99,57 +109,55 @@
     .segment-btn.active { background-color: #ef4444; color: #ffffff; }
     .action-btn { padding: 16px 32px; font-size: 1.3rem; font-weight: 700; border: none; border-radius: 12px; background-color: #ef4444; color: white; cursor: pointer; width: 100%; }
     
-    /* Screen 2 Calibration Controller Ribbon Wrapper Styles */
-    .calibration-view { display: none; z-index: 50; }
-    .calibration-controls { 
-        position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); 
-        background: rgba(28, 25, 23, 0.96); padding: 10px 24px; border-radius: 30px; 
-        display: flex; align-items: center; gap: 20px; width: 96vw; max-width: 820px; 
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); 
-    }
-    .hud-group { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
-    .calibration-controls input[type="range"] { width: 100%; accent-color: #ef4444; background: transparent; margin: 0; padding: 4px 0; }
+    /* Screen 2: Split Sizing Top & Sensitivity Bottom Bar Elements */
+    .calibration-view { display: none; z-index: 50; flex-direction: column; justify-content: space-between; padding: 0; }
     
-    /* NEW: Visual sound activation blink popup indicator layout */
-    .trigger-flash-box {
-        position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
-        background-color: #22c55e; color: #ffffff; font-weight: 800; font-size: 0.8rem;
-        padding: 5px 14px; border-radius: 6px; letter-spacing: 0.05em; opacity: 0;
-        transition: opacity 0.05s ease-out; pointer-events: none; box-shadow: 0 4px 12px rgba(34,197,94,0.3);
+    .calibration-top-bar {
+        width: 100vw; background: rgba(28, 25, 23, 0.96); padding: 12px calc(24px + env(safe-area-inset-right)) 12px calc(24px + env(safe-area-inset-left));
+        display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+        margin-top: 0; padding-top: calc(12px + env(safe-area-inset-top));
     }
-    .trigger-flash-box.active { opacity: 1; }
+    .calibration-top-bar input[type="range"] { flex-grow: 1; accent-color: #ef4444; background: transparent; margin: 0; }
+    
+    .calibration-bottom-bar {
+        width: 100vw; background: rgba(28, 25, 23, 0.96); padding: 12px calc(24px + env(safe-area-inset-right)) 12px calc(24px + env(safe-area-inset-left));
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+        padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    }
+    .calibration-bottom-bar input[type="range"] { width: 100%; accent-color: #ef4444; background: transparent; margin: 0; }
 
     /* Screen 3 Practice Arena Component Styles */
-    .target-view { display: none; z-index: 10; flex-direction: column; justify-content: flex-end; }
+    .target-view { display: none; z-index: 10; }
     
-    /* FIXED: Mega Timer element occupying the entire top portion of the display */
     .shot-timer-mega-hud {
         position: absolute; top: 0; left: 0; width: 100%;
-        height: 38%; display: flex; justify-content: center; align-items: center;
-        font-size: clamp(4.5rem, 16vh, 9rem); font-weight: 900; color: rgba(28, 25, 23, 0.85);
-        background: linear-gradient(to bottom, rgba(0,0,0,0.03), rgba(0,0,0,0));
+        height: 100%; display: flex; justify-content: center; align-items: center;
+        font-size: clamp(5rem, 20vh, 12rem); font-weight: 900; color: rgba(28, 25, 23, 0.06); /* Dimmed so it serves cleanly as a layout backdrop */
         font-family: monospace; z-index: 5; transition: color 0.1s ease;
-        padding-top: env(safe-area-inset-top);
+        pointer-events: none;
     }
-    .shot-timer-mega-hud.finished { color: #22c55e !important; }
+    .shot-timer-mega-hud.finished { color: rgba(34, 197, 94, 0.15) !important; }
 
-    /* Shrunk secondary nav layer safely pushed clear of mega timer text overlays */
+    /* Navigation ribbon layout safely structured */
     .compact-nav-ribbon {
-        position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 0; width: 100%;
-        display: flex; justify-content: space-between; align-items: center; padding: 0 calc(20px + env(safe-area-inset-right)) 0 calc(20px + env(safe-area-inset-left));
+        position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 0; width: 100%;
+        display: flex; justify-content: space-between; align-items: center; padding: 0 calc(24px + env(safe-area-inset-right)) 0 calc(24px + env(safe-area-inset-left));
         pointer-events: none; z-index: 20;
     }
     .compact-nav-ribbon * { pointer-events: auto; }
-    .streak-mini-pill { font-weight: 700; font-size: 0.95rem; background: rgba(28, 25, 23, 0.08); padding: 4px 12px; border-radius: 20px; }
+    
+    /* CHANGED: Expanded navigation nodes to 2x larger dimensions */
+    .large-nav-item { transform: scale(1.8); transform-origin: top center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+    .streak-mini-pill { font-weight: 700; font-size: 0.95rem; background: rgba(28, 25, 23, 0.12); padding: 4px 12px; border-radius: 20px; }
 
-    /* Target alignment box grid layout rules */
-    .target-array { display: flex; justify-content: center; align-items: center; position: absolute; top: 68%; left: 50%; transform: translate(-50%, -50%); }
+    /* CHANGED: Targets locked completely dead center in active presentation framework layers */
+    .target-array { display: flex; justify-content: center; align-items: center; z-index: 15; pointer-events: none; }
     .target-dot { background-color: #000000; border-radius: 50%; transition: opacity 0.05s ease-out; opacity: 1; flex-shrink: 0; }
     .target-dot.hit { opacity: 0; pointer-events: none; }
 
-    /* Universal Control elements styles markup */
-    .slider-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #a8a29e; margin-bottom: 2px; }
-    .meter-container { width: 100%; height: 3px; background-color: #292524; border-radius: 1px; overflow: hidden; position: relative; margin-top: 1px; }
+    /* Control elements styles */
+    .slider-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #a8a29e; margin-bottom: 2px; white-space: nowrap; }
+    .meter-container { width: 100%; height: 4px; background-color: #292524; border-radius: 1px; overflow: hidden; position: relative; margin-top: 3px; }
     .meter-bar { height: 100%; width: 0%; background-color: #f43f5e; transition: width 0.03s linear; }
     .back-arrow-btn { background: none; border: none; color: #f5f5f4; font-size: 1.6rem; font-weight: bold; cursor: pointer; padding: 0; margin: 0; opacity: 0.6; transition: opacity 0.2s; width: 30px; display: flex; align-items: center; justify-content: center; }
     .back-arrow-btn:hover { opacity: 1; }
@@ -178,10 +186,10 @@
     const deltaBar = document.getElementById('deltaBar');
     const streakCounter = document.getElementById('streakCounter');
     const welcomeStreak = document.getElementById('welcomeStreak');
-    const triggerFlashIndicator = document.getElementById('triggerFlashIndicator');
+    const screenFlashOverlay = document.getElementById('screenFlashOverlay');
 
     let audioCtx, analyser, highPassFilter, dataArray;
-    let previousVolume = 0, lastTriggerTime = 0, systemInitialized = false, blinkTimeout;
+    let previousVolume = 0, lastTriggerTime = 0, systemInitialized = false, flashTimeout;
     const MIN_HIT_COOLDOWN = 250, RESPAWN_DELAY = 1000, HARDCODED_FREQ = 9000; 
 
     let currentDirection = 'leftward', targetIndexOrder = "5,4,3,2,1".split(","), hitPointer = 0, globalTargetSize = 45;
@@ -189,10 +197,7 @@
 
     function updateParameters() { 
         spikeVal.innerText = spikeSlider.value; 
-        if (systemInitialized) {
-            // Keep parameters continuously bound to hot input audio tracks
-            resetLiveTimerClock(); 
-        }
+        if (systemInitialized) resetLiveTimerClock(); 
     }
     
     function updateCalibrationDotSize() {
@@ -236,11 +241,9 @@
     }
     checkAndRenderStreak();
 
-    // Navigation Routing Layout Logic Modifiers
     beginBtn.addEventListener('click', async () => {
         setupPanel.style.display = 'none'; 
         calibrationView.style.display = 'flex';
-        // Initialize the audio microphone stream on page 2 so the live meter bar works
         if (!systemInitialized) await initializeAudioSubsystem();
     });
     
@@ -250,7 +253,7 @@
         checkAndRenderStreak();
     });
     
-    // FIXED: Back button on training loop screen cleanly steps back one step to Screen 2
+    // FIXED: Back arrow correctly reverts precisely one layer backwards to calibration setup screen
     backBtn.addEventListener('click', () => {
         targetView.style.display = 'none'; 
         calibrationView.style.display = 'flex';
@@ -261,7 +264,7 @@
         targetIndexOrder = (currentDirection === 'leftward') ? "5,4,3,2,1".split(",") : "1,2,3,4,5".split(",");
         hitPointer = 0; resetLiveTimerClock();
         
-        // FIXED: Spacing layout between targets set to exactly 1.5x calibrated dot width parameter
+        // Locked to 1.5x target diameter gap distribution constraints
         targetArrayContainer.style.gap = (globalTargetSize * 1.5) + "px";
         for (let i = 1; i <= 5; i++) {
             const t = document.getElementById("target" + i);
@@ -280,7 +283,7 @@
             analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
             source.connect(highPassFilter); highPassFilter.connect(analyser);
             dataArray = new Uint8Array(analyser.frequencyBinCount); systemInitialized = true; processAudioLoop();
-        } catch (err) { alert('Microphone streaming layout hook configuration rejected.'); }
+        } catch (err) { alert('Microphone layout initialization access denied.'); }
     }
 
     function processAudioLoop() {
@@ -293,8 +296,8 @@
         const now = Date.now();
         
         if (spikeVelocity > parseInt(spikeSlider.value) && (now - lastTriggerTime) > MIN_HIT_COOLDOWN) {
-            // FIXED: Visual blink signal flash feedback trigger
-            triggerFlashBoxFeedback();
+            // FIXED: Full-screen green flash burst feedback engine
+            triggerFullScreenFlashBurst();
             
             if (targetView.style.display === 'flex' && hitPointer < 5) {
                 triggerTargetArrayHit();
@@ -304,10 +307,10 @@
         previousVolume = highFreqPeak; requestAnimationFrame(processAudioLoop);
     }
 
-    function triggerFlashBoxFeedback() {
-        clearTimeout(blinkTimeout);
-        triggerFlashIndicator.classList.add('active');
-        blinkTimeout = setTimeout(() => { triggerFlashIndicator.classList.remove('active'); }, 120);
+    function triggerFullScreenFlashBurst() {
+        clearTimeout(flashTimeout);
+        screenFlashOverlay.classList.add('active');
+        flashTimeout = setTimeout(() => { screenFlashOverlay.classList.remove('active'); }, 50);
     }
 
     function triggerTargetArrayHit() {
