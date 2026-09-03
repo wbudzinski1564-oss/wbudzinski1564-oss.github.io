@@ -9,31 +9,44 @@
 </head>
 <body>
 
-    <!-- Full Screen Landscape Blocker -->
+    <!-- Landscape Blocker Overlay -->
     <div class="rotation-blocker">
         <div class="phone-icon"></div>
         <h3>Please Rotate Device</h3>
         <p>Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
-    <!-- First Page Full Width Window Frame -->
+    <!-- Screen 1: Welcome / Main Menu Window -->
     <div id="setupPanel" class="page-layer setup-panel">
         <div class="setup-content">
-            <h2>Dry Fire</h2>
-            <p>Select your shooting track order parameter and engage.</p>
+            <h2 style="font-size: 2.5rem; margin: 0 0 10px 0;">Dry Fire</h2>
             
-            <span class="selector-label">Target Flow Direction</span>
+            <!-- Replaced text layout directly with Streak display tracker -->
+            <div id="welcomeStreak" class="main-streak-badge">🔥 0 Days Practice Streak</div>
+            
+            <span class="selector-label" style="margin-top: 20px;">Target Flow Direction</span>
             <div class="segmented-control">
                 <button type="button" id="leftwardBtn" class="segment-btn active">Leftward</button>
                 <button type="button" id="rightwardBtn" class="segment-btn">Rightward</button>
             </div>
 
-            <div id="welcomeStreak"></div>
             <button id="beginBtn" class="action-btn">Begin</button>
         </div>
     </div>
 
-    <!-- Active Practice Arena Container -->
+    <!-- Screen 2: NEW Size Calibration Arena Screen -->
+    <div id="calibrationView" class="page-layer calibration-view">
+        <div class="calibration-controls">
+            <span class="slider-label" style="color: #f5f5f4;">Adjust Target Size</span>
+            <input type="range" id="sizeSlider" min="15" max="120" value="45">
+            <button id="startTrainingBtn" class="action-btn" style="margin: 0; padding: 10px 20px; font-size: 1rem; width: auto;">Start Training</button>
+            <button id="calBackBtn" class="back-arrow-btn" aria-label="Back to main menu">↩</button>
+        </div>
+        <!-- Live Preview calibration dot inside screen matrix -->
+        <div id="calibrationDot" class="target-dot"></div>
+    </div>
+
+    <!-- Screen 3: Active Practice Training Arena Container -->
     <div id="targetView" class="page-layer target-view">
         <div id="controlHud" class="target-controls-top-hub">
             <div id="streakCounter" class="streak-pill-text">🔥 0</div>
@@ -49,7 +62,8 @@
             
             <span id="spikeVal" class="value-display">90</span>
             
-            <button id="backBtn" class="back-arrow-btn" aria-label="Back to configuration">←</button>
+            <!-- Curvy back arrow execution component -->
+            <button id="backBtn" class="back-arrow-btn" aria-label="Back to size calibration">↩</button>
         </div>
         
         <!-- 5 Horizontal Array Targets -->
@@ -92,6 +106,7 @@
         align-items: center;
     }
 
+    /* Screen 1 Menu presentation layout card wrapper constraints */
     .setup-panel {
         background: #1c1917;
         color: #f5f5f4;
@@ -107,6 +122,18 @@
         max-width: 440px;
         width: 100%;
         margin: auto;
+    }
+
+    .main-streak-badge {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #f43f5e;
+        background: #141210;
+        padding: 12px 24px;
+        border-radius: 50px;
+        display: inline-block;
+        border: 1px solid #2e2a24;
+        margin: 10px 0;
     }
 
     .selector-label {
@@ -163,6 +190,36 @@
     .action-btn:hover { background-color: #dc2626; }
     .action-btn:active { transform: scale(0.98); }
 
+    /* Screen 2 calibration controls display header node wrapper framework */
+    .calibration-view {
+        display: none;
+        z-index: 50;
+    }
+
+    .calibration-controls {
+        position: absolute;
+        top: calc(12px + env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(28, 25, 23, 0.95);
+        padding: 12px 24px;
+        border-radius: 30px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        width: 95vw;
+        max-width: 750px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
+    }
+
+    .calibration-controls input[type="range"] {
+        flex-grow: 1;
+        accent-color: #ef4444;
+        background: transparent;
+    }
+
     .target-view {
         display: none; 
         z-index: 10;
@@ -172,7 +229,6 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 45px; 
         position: absolute;
         top: 50%;
         left: 50%;
@@ -180,12 +236,11 @@
     }
 
     .target-dot {
-        width: 45px;
-        height: 45px;
         background-color: #000000;
         border-radius: 50%;
         transition: opacity 0.05s ease-out;
         opacity: 1;
+        flex-shrink: 0;
     }
 
     .target-dot.hit {
@@ -239,7 +294,6 @@
         color: #a8a29e;
         white-space: nowrap;
         flex-shrink: 0;
-        width: 42px; 
     }
 
     .slider-flex-container {
@@ -257,7 +311,6 @@
         margin: 0;
         padding: 8px 0;
         display: block;
-        background: transparent;
     }
 
     .meter-container {
@@ -286,19 +339,20 @@
         width: 32px; 
     }
 
+    /* Curvy arrow visual presentation tweaks */
     .back-arrow-btn {
         background: none;
         border: none;
         color: #f5f5f4;
-        font-size: 1.4rem;
+        font-size: 1.6rem;
         font-weight: bold;
         cursor: pointer;
         padding: 0;
-        margin: 0;
+        margin: 0 0 0 5px;
         opacity: 0.6;
         transition: opacity 0.2s, transform 0.1s;
         flex-shrink: 0;
-        width: 25px; 
+        width: 30px; 
         display: flex;
         align-items: center;
         justify-content: center;
@@ -341,7 +395,7 @@
     }
 
     @media screen and (orientation: portrait) {
-        .setup-panel, .target-view {
+        .setup-panel, .calibration-view, .target-view {
             display: none !important;
         }
         .rotation-blocker {
@@ -351,11 +405,19 @@
 </style>
 <script>
     const setupPanel = document.getElementById('setupPanel');
+    const calibrationView = document.getElementById('calibrationView');
     const targetView = document.getElementById('targetView');
+    
     const beginBtn = document.getElementById('beginBtn');
+    const calBackBtn = document.getElementById('calBackBtn');
+    const startTrainingBtn = document.getElementById('startTrainingBtn');
     const backBtn = document.getElementById('backBtn');
+    
     const leftwardBtn = document.getElementById('leftwardBtn');
     const rightwardBtn = document.getElementById('rightwardBtn');
+    const sizeSlider = document.getElementById('sizeSlider');
+    const calibrationDot = document.getElementById('calibrationDot');
+    const targetArrayContainer = document.getElementById('targetArray');
     
     const spikeSlider = document.getElementById('spikeSlider');
     const spikeVal = document.getElementById('spikeVal');
@@ -378,6 +440,9 @@
     let targetIndexOrder = "5,4,3,2,1".split(","); 
     let hitPointer = 0; 
 
+    // Live Target Size tracking parameter
+    let globalTargetSize = 45;
+
     function updateParameters() {
         spikeVal.innerText = spikeSlider.value;
         resetHudTimeout();
@@ -392,6 +457,16 @@
             }
         }, 4000); 
     }
+
+    // Calibration view real-time feedback loop handler
+    function updateCalibrationDotSize() {
+        globalTargetSize = parseInt(sizeSlider.value);
+        calibrationDot.style.width = globalTargetSize + "px";
+        calibrationDot.style.height = globalTargetSize + "px";
+    }
+
+    sizeSlider.addEventListener('input', updateCalibrationDotSize);
+    updateCalibrationDotSize(); // Sync dimensions immediately on generation loop ticket
 
     leftwardBtn.addEventListener('click', () => {
         currentDirection = 'leftward';
@@ -428,11 +503,7 @@
                 }
             }
             
-            if (storedStreak > 0) {
-                welcomeStreak.innerText = "Current Practice Streak: 🔥 " + storedStreak + " Days";
-            } else {
-                welcomeStreak.innerText = '';
-            }
+            welcomeStreak.innerText = "🔥 " + storedStreak + " Days Practice Streak";
             streakCounter.innerText = "🔥 " + storedStreak;
             return;
         }
@@ -442,12 +513,28 @@
             localStorage.setItem('df_streak_count', storedStreak);
             localStorage.setItem('df_last_practice_date', todayStr);
             streakCounter.innerText = "🔥 " + storedStreak;
+            welcomeStreak.innerText = "🔥 " + storedStreak + " Days Practice Streak";
         }
     }
 
     checkAndRenderStreak();
 
-    beginBtn.addEventListener('click', async () => {
+    // Transition from Screen 1 -> Screen 2 (Calibration View)
+    beginBtn.addEventListener('click', () => {
+        setupPanel.style.display = 'none';
+        calibrationView.style.display = 'flex';
+    });
+
+    // Go back from Screen 2 -> Screen 1
+    calBackBtn.addEventListener('click', () => {
+        calibrationView.style.display = 'none';
+        setupPanel.style.display = 'flex';
+        checkAndRenderStreak();
+    });
+
+    // Transition from Screen 2 -> Screen 3 (Active Training Course)
+    startTrainingBtn.addEventListener('click', async () => {
+        // Set directional indices
         if (currentDirection === 'leftward') {
             targetIndexOrder = "5,4,3,2,1".split(","); 
         } else {
@@ -455,22 +542,33 @@
         }
         hitPointer = 0; 
 
+        // Apply calibrated sizing parameters dynamically to targets & spacing limits
+        targetArrayContainer.style.gap = globalTargetSize + "px"; // Spaced 1 target size apart
+        for (let i = 1; i <= 5; i++) {
+            const target = document.getElementById("target" + i);
+            if (target) {
+                target.style.width = globalTargetSize + "px";
+                target.style.height = globalTargetSize + "px";
+                target.classList.remove('hit'); // Unmute visibility nodes
+            }
+        }
+
         if (!systemInitialized) {
             await initializeAudioSubsystem();
         }
         if (systemInitialized) {
-            setupPanel.style.display = 'none';
+            calibrationView.style.display = 'none';
             targetView.style.display = 'flex';
             resetHudTimeout();
         }
     });
 
+    // Back Arrow out of Training view shifts back to Size tuning panel matrix layout
     backBtn.addEventListener('click', () => {
         targetView.style.display = 'none';
-        setupPanel.style.display = 'flex';
+        calibrationView.style.display = 'flex';
         clearTimeout(hudTimeout);
         controlHud.classList.remove('hidden');
-        checkAndRenderStreak(); 
     });
 
     async function initializeAudioSubsystem() {
@@ -497,7 +595,7 @@
 
             processAudioLoop();
         } catch (err) {
-            alert('Microphone initialization failed. Please check browser configuration handles.');
+            alert('Microphone initialization failed. Please verify browser configuration handles.');
         }
     }
 
