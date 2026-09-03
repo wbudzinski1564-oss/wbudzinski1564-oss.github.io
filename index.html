@@ -16,9 +16,6 @@
         <p>Dry Fire requires Landscape Mode to optimize target presentation layout.</p>
     </div>
 
-    <!-- FIXED: Flash overlay constraint limited strictly to the lower half of the viewport -->
-    <div id="screenFlashOverlay" class="screen-flash-overlay"></div>
-
     <!-- Screen 1: Main Menu -->
     <div id="setupPanel" class="page-layer setup-panel">
         <div class="setup-content">
@@ -36,7 +33,6 @@
 
     <!-- Screen 2: Size & Sensitivity Calibration Layout -->
     <div id="calibrationView" class="page-layer calibration-view">
-        <!-- FIXED: Reverted back to the original floating pill header bar aesthetics (does not fill screen width) -->
         <div class="calibration-controls">
             <div class="hud-group" style="width: 140px;">
                 <span class="slider-label">Target Size</span>
@@ -58,12 +54,12 @@
             <button id="calBackBtn" class="back-arrow-btn">↩</button>
         </div>
 
+        <!-- The calibration dot can now toggle a green flash natively via classes -->
         <div id="calibrationDot" class="target-dot"></div>
     </div>
 
     <!-- Screen 3: Practice Arena Container Layout -->
     <div id="targetView" class="page-layer target-view">
-        <!-- FIXED: Stopwatch repositioned back to the upper section with clean high-contrast darkened typography -->
         <div id="shotTimerHud" class="shot-timer-top-hud">0.00</div>
 
         <!-- Navigation Ribbon Layer -->
@@ -88,14 +84,6 @@
         overflow: hidden; position: relative;
     }
     .page-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-    
-    /* FIXED: Restricted flash footprint to exactly the lower 50% section of the screen frame */
-    .screen-flash-overlay {
-        position: fixed; bottom: 0; left: 0; width: 100vw; height: 50vh;
-        background-color: #22c55e; opacity: 0; pointer-events: none; z-index: 999;
-        transition: opacity 0.04s ease-out;
-    }
-    .screen-flash-overlay.active { opacity: 0.45; transition: none; }
 
     /* Screen 1 Dashboard Styles */
     .setup-panel { background: #1c1917; color: #f5f5f4; width: 100%; height: 100%; padding: 40px; text-align: center; z-index: 100; flex-direction: column; }
@@ -107,7 +95,7 @@
     .segment-btn.active { background-color: #ef4444; color: #ffffff; }
     .action-btn { padding: 16px 32px; font-size: 1.3rem; font-weight: 700; border: none; border-radius: 12px; background-color: #ef4444; color: white; cursor: pointer; width: 100%; }
     
-    /* Screen 2: REVERTED to original compact floating pill layout parameters */
+    /* Screen 2: Sizing & Calibration Controls */
     .calibration-view { display: none; z-index: 50; }
     .calibration-controls { 
         position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); 
@@ -121,14 +109,12 @@
     /* Screen 3 Practice Arena Component Styles */
     .target-view { display: none; z-index: 10; }
     
-    /* FIXED: Rescaled Stopwatch header block at the top with high-contrast darkened font color signatures */
     .shot-timer-top-hud {
         position: absolute; top: calc(30px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-        font-size: clamp(3.5rem, 14vh, 7rem); font-weight: 900; color: #1c1917; /* Dark high-visibility text */
+        font-size: clamp(3.5rem, 14vh, 7rem); font-weight: 900; color: #1c1917; 
         font-family: monospace; z-index: 5; transition: color 0.1s ease;
         line-height: 1; pointer-events: none;
     }
-    /* FIXED: Permanently blocks green background shifts. Only the stopwatch font modifications highlight completion */
     .shot-timer-top-hud.finished { color: #22c55e !important; }
 
     /* Navigation ribbon layout elements */
@@ -144,8 +130,11 @@
 
     /* Targets locked dead center horizontally and vertically */
     .target-array { display: flex; justify-content: center; align-items: center; z-index: 15; pointer-events: none; }
-    .target-dot { background-color: #000000; border-radius: 50%; transition: opacity 0.05s ease-out; opacity: 1; flex-shrink: 0; }
+    .target-dot { background-color: #000000; border-radius: 50%; transition: background-color 0.05s ease-out, opacity 0.05s ease-out; opacity: 1; flex-shrink: 0; }
     .target-dot.hit { opacity: 0; pointer-events: none; }
+    
+    /* CHANGED: Visual target confirmation trigger modifier class for screen 2 calibration dot */
+    .target-dot.triggered { background-color: #22c55e !important; }
 
     /* Universal Control elements styling */
     .slider-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #a8a29e; margin-bottom: 2px; white-space: nowrap; }
@@ -178,10 +167,9 @@
     const deltaBar = document.getElementById('deltaBar');
     const streakCounter = document.getElementById('streakCounter');
     const welcomeStreak = document.getElementById('welcomeStreak');
-    const screenFlashOverlay = document.getElementById('screenFlashOverlay');
 
     let audioCtx, analyser, highPassFilter, dataArray;
-    let previousVolume = 0, lastTriggerTime = 0, systemInitialized = false, flashTimeout;
+    let previousVolume = 0, lastTriggerTime = 0, systemInitialized = false, targetFlashTimeout;
     const MIN_HIT_COOLDOWN = 250, RESPAWN_DELAY = 1000, HARDCODED_FREQ = 9000; 
 
     let currentDirection = 'leftward', targetIndexOrder = "5,4,3,2,1".split(","), hitPointer = 0, globalTargetSize = 45;
@@ -286,8 +274,11 @@
         const now = Date.now();
         
         if (spikeVelocity > parseInt(spikeSlider.value) && (now - lastTriggerTime) > MIN_HIT_COOLDOWN) {
-            // FIXED: Lower-half screen flash engine activated
-            triggerLowerScreenFlashBurst();
+            // CHANGED: Removed full/partial green screen flashing completely.
+            // Instead, flash only the single target dot on screen 2 when calibrating.
+            if (calibrationView.style.display === 'flex') {
+                triggerTargetFlashFeedback();
+            }
             
             if (targetView.style.display === 'flex' && hitPointer < 5) {
                 triggerTargetArrayHit();
@@ -297,10 +288,13 @@
         previousVolume = highFreqPeak; requestAnimationFrame(processAudioLoop);
     }
 
-    function triggerLowerScreenFlashBurst() {
-        clearTimeout(flashTimeout);
-        screenFlashOverlay.classList.add('active');
-        flashTimeout = setTimeout(() => { screenFlashOverlay.classList.remove('active'); }, 50);
+    // CHANGED: Isolated target-dot color pulse flash feedback logic loop
+    function triggerTargetFlashFeedback() {
+        clearTimeout(targetFlashTimeout);
+        calibrationDot.classList.add('triggered');
+        targetFlashTimeout = setTimeout(() => {
+            calibrationDot.classList.remove('triggered');
+        }, 80);
     }
 
     function triggerTargetArrayHit() {
