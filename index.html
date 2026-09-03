@@ -344,207 +344,207 @@
             <div class="target-dot" id="target2"></div>
             <div class="target-dot" id="target3"></div>
             <div class="target-dot" id="target4"></div>
-    <script>
-        const setupPanel = document.getElementById('setupPanel');
-        const targetView = document.getElementById('targetView');
-        const beginBtn = document.getElementById('beginBtn');
-        const backBtn = document.getElementById('backBtn');
-        const leftwardBtn = document.getElementById('leftwardBtn');
-        const rightwardBtn = document.getElementById('rightwardBtn');
-        
-        const spikeSlider = document.getElementById('spikeSlider');
-        const spikeVal = document.getElementById('spikeVal');
-        const deltaBar = document.getElementById('deltaBar');
-        const controlHud = document.getElementById('controlHud');
-        const streakCounter = document.getElementById('streakCounter');
-        const welcomeStreak = document.getElementById('welcomeStreak');
+<script>
+    const setupPanel = document.getElementById('setupPanel');
+    const targetView = document.getElementById('targetView');
+    const beginBtn = document.getElementById('beginBtn');
+    const backBtn = document.getElementById('backBtn');
+    const leftwardBtn = document.getElementById('leftwardBtn');
+    const rightwardBtn = document.getElementById('rightwardBtn');
+    
+    const spikeSlider = document.getElementById('spikeSlider');
+    const spikeVal = document.getElementById('spikeVal');
+    const deltaBar = document.getElementById('deltaBar');
+    const controlHud = document.getElementById('controlHud');
+    const streakCounter = document.getElementById('streakCounter');
+    const welcomeStreak = document.getElementById('welcomeStreak');
 
-        let audioCtx, analyser, highPassFilter, dataArray;
-        let previousVolume = 0;
-        let lastTriggerTime = 0;
-        let systemInitialized = false;
-        let hudTimeout;
-        
-        const MIN_HIT_COOLDOWN = 250; 
-        const RESPAWN_DELAY = 1000;    
-        const HARDCODED_FREQ = 9000; 
+    let audioCtx, analyser, highPassFilter, dataArray;
+    let previousVolume = 0;
+    let lastTriggerTime = 0;
+    let systemInitialized = false;
+    let hudTimeout;
+    
+    const MIN_HIT_COOLDOWN = 250; 
+    const RESPAWN_DELAY = 1000;    
+    const HARDCODED_FREQ = 9000; 
 
-        let currentDirection = 'leftward'; 
-        let targetIndexOrder =; 
-        let hitPointer = 0; 
+    let currentDirection = 'leftward'; 
+    let targetIndexOrder =; 
+    let hitPointer = 0; 
 
-        function updateParameters() {
-            spikeVal.innerText = spikeSlider.value;
+    function updateParameters() {
+        spikeVal.innerText = spikeSlider.value;
+        resetHudTimeout();
+    }
+
+    function resetHudTimeout() {
+        clearTimeout(hudTimeout);
+        controlHud.classList.remove('hidden');
+        hudTimeout = setTimeout(() => {
+            if (targetView.style.display === 'flex') {
+                controlHud.classList.add('hidden');
+            }
+        }, 4000); 
+    }
+
+    leftwardBtn.addEventListener('click', () => {
+        currentDirection = 'leftward';
+        leftwardBtn.classList.add('active');
+        rightwardBtn.classList.remove('active');
+    });
+
+    rightwardBtn.addEventListener('click', () => {
+        currentDirection = 'rightward';
+        rightwardBtn.classList.add('active');
+        leftwardBtn.classList.remove('active');
+    });
+
+    spikeSlider.addEventListener('input', updateParameters);
+    window.addEventListener('mousemove', resetHudTimeout);
+    window.addEventListener('touchstart', resetHudTimeout);
+    updateParameters();
+
+    function checkAndRenderStreak(isNewHit = false) {
+        const todayStr = new Date().toDateString();
+        let storedStreak = parseInt(localStorage.getItem('df_streak_count')) || 0;
+        let lastDateStr = localStorage.getItem('df_last_practice_date');
+
+        if (!isNewHit) {
+            if (lastDateStr) {
+                const todayObj = new Date(todayStr);
+                const lastObj = new Date(lastDateStr);
+                const diffTime = Math.abs(todayObj - lastObj);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 1) {
+                    storedStreak = 0;
+                    localStorage.setItem('df_streak_count', 0);
+                }
+            }
+            
+            if (storedStreak > 0) {
+                welcomeStreak.innerText = `Current Practice Streak: 🔥 ${storedStreak} Days`;
+            } else {
+                welcomeStreak.innerText = '';
+            }
+            streakCounter.innerText = `🔥 ${storedStreak}`;
+            return;
+        }
+
+        if (lastDateStr !== todayStr) {
+            storedStreak += 1;
+            localStorage.setItem('df_streak_count', storedStreak);
+            localStorage.setItem('df_last_practice_date', todayStr);
+            streakCounter.innerText = `🔥 ${storedStreak}`;
+        }
+    }
+
+    checkAndRenderStreak();
+
+    beginBtn.addEventListener('click', async () => {
+        if (currentDirection === 'leftward') {
+            targetIndexOrder =; 
+        } else {
+            targetIndexOrder =; 
+        }
+        hitPointer = 0; 
+
+        if (!systemInitialized) {
+            await initializeAudioSubsystem();
+        }
+        if (systemInitialized) {
+            setupPanel.style.display = 'none';
+            targetView.style.display = 'flex';
             resetHudTimeout();
         }
+    });
 
-        function resetHudTimeout() {
-            clearTimeout(hudTimeout);
-            controlHud.classList.remove('hidden');
-            hudTimeout = setTimeout(() => {
-                if (targetView.style.display === 'flex') {
-                    controlHud.classList.add('hidden');
-                }
-            }, 4000); 
-        }
+    backBtn.addEventListener('click', () => {
+        targetView.style.display = 'none';
+        setupPanel.style.display = 'flex';
+        clearTimeout(hudTimeout);
+        controlHud.classList.remove('hidden');
+        checkAndRenderStreak(); 
+    });
 
-        leftwardBtn.addEventListener('click', () => {
-            currentDirection = 'leftward';
-            leftwardBtn.classList.add('active');
-            rightwardBtn.classList.remove('active');
-        });
+    async function initializeAudioSubsystem() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
+            });
 
-        rightwardBtn.addEventListener('click', () => {
-            currentDirection = 'rightward';
-            rightwardBtn.classList.add('active');
-            leftwardBtn.classList.remove('active');
-        });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+            const source = audioCtx.createMediaStreamSource(stream);
 
-        spikeSlider.addEventListener('input', updateParameters);
-        window.addEventListener('mousemove', resetHudTimeout);
-        window.addEventListener('touchstart', resetHudTimeout);
-        updateParameters();
+            highPassFilter = audioCtx.createBiquadFilter();
+            highPassFilter.type = "highpass";
+            highPassFilter.frequency.value = HARDCODED_FREQ; 
 
-        function checkAndRenderStreak(isNewHit = false) {
-            const todayStr = new Date().toDateString();
-            let storedStreak = parseInt(localStorage.getItem('df_streak_count')) || 0;
-            let lastDateStr = localStorage.getItem('df_last_practice_date');
-
-            if (!isNewHit) {
-                if (lastDateStr) {
-                    const todayObj = new Date(todayStr);
-                    const lastObj = new Date(lastDateStr);
-                    const diffTime = Math.abs(todayObj - lastObj);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (diffDays > 1) {
-                        storedStreak = 0;
-                        localStorage.setItem('df_streak_count', 0);
-                    }
-                }
-                
-                if (storedStreak > 0) {
-                    welcomeStreak.innerText = `Current Practice Streak: 🔥 ${storedStreak} Days`;
-                } else {
-                    welcomeStreak.innerText = '';
-                }
-                streakCounter.innerText = `🔥 ${storedStreak}`;
-                return;
-            }
-
-            if (lastDateStr !== todayStr) {
-                storedStreak += 1;
-                localStorage.setItem('df_streak_count', storedStreak);
-                localStorage.setItem('df_last_practice_date', todayStr);
-                streakCounter.innerText = `🔥 ${storedStreak}`;
-            }
-        }
-
-        checkAndRenderStreak();
-
-        beginBtn.addEventListener('click', async () => {
-            if (currentDirection === 'leftward') {
-                targetIndexOrder =; 
-            } else {
-                targetIndexOrder =; 
-            }
-            hitPointer = 0; 
-
-            if (!systemInitialized) {
-                await initializeAudioSubsystem();
-            }
-            if (systemInitialized) {
-                setupPanel.style.display = 'none';
-                targetView.style.display = 'flex';
-                resetHudTimeout();
-            }
-        });
-
-        backBtn.addEventListener('click', () => {
-            targetView.style.display = 'none';
-            setupPanel.style.display = 'flex';
-            clearTimeout(hudTimeout);
-            controlHud.classList.remove('hidden');
-            checkAndRenderStreak(); 
-        });
-
-        async function initializeAudioSubsystem() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
-                });
-
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
-                const source = audioCtx.createMediaStreamSource(stream);
-
-                highPassFilter = audioCtx.createBiquadFilter();
-                highPassFilter.type = "highpass";
-                highPassFilter.frequency.value = HARDCODED_FREQ; 
-
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; 
-                
-                source.connect(highPassFilter);
-                highPassFilter.connect(analyser);
-
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                systemInitialized = true;
-
-                processAudioLoop();
-            } catch (err) {
-                alert('Microphone initialization failed. Please check browser configuration handles.');
-            }
-        }
-
-        function processAudioLoop() {
-            analyser.getByteFrequencyData(dataArray);
-
-            let highFreqPeak = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                if (dataArray[i] > highFreqPeak) {
-                    highFreqPeak = dataArray[i];
-                }
-            }
-
-            let spikeVelocity = highFreqPeak - previousVolume;
-            if (spikeVelocity < 0) spikeVelocity = 0;
-
-            const deltaPct = (spikeVelocity / 150) * 100;
-            deltaBar.style.width = Math.min(deltaPct, 100) + '%';
-
-            const now = Date.now();
-            const activeThreshold = parseInt(spikeSlider.value);
-
-            if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > MIN_HIT_COOLDOWN && hitPointer < 5) {
-                triggerTargetArrayHit();
-                lastTriggerTime = now;
-            }
-
-            previousVolume = highFreqPeak;
-            requestAnimationFrame(processAudioLoop);
-        }
-
-        function triggerTargetArrayHit() {
-            const currentTargetID = targetIndexOrder[hitPointer];
-            const targetToMute = document.getElementById(`target${currentTargetID}`);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256; 
             
-            if (targetToMute) {
-                targetToMute.classList.add('hit');
-                hitPointer++;
-            }
+            source.connect(highPassFilter);
+            highPassFilter.connect(analyser);
 
-            if (hitPointer === 5) {
-                checkAndRenderStreak(true);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            systemInitialized = true;
 
-                setTimeout(() => {
-                    for (let i = 1; i <= 5; i++) {
-                        const target = document.getElementById(`target${i}`);
-                        if (target) target.classList.remove('hit');
-                    }
-                    hitPointer = 0; 
-                }, RESPAWN_DELAY);
+            processAudioLoop();
+        } catch (err) {
+            alert('Microphone initialization failed. Please check browser configuration handles.');
+        }
+    }
+
+    function processAudioLoop() {
+        analyser.getByteFrequencyData(dataArray);
+
+        let highFreqPeak = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > highFreqPeak) {
+                highFreqPeak = dataArray[i];
             }
         }
-    </script>
+
+        let spikeVelocity = highFreqPeak - previousVolume;
+        if (spikeVelocity < 0) spikeVelocity = 0;
+
+        const deltaPct = (spikeVelocity / 150) * 100;
+        deltaBar.style.width = Math.min(deltaPct, 100) + '%';
+
+        const now = Date.now();
+        const activeThreshold = parseInt(spikeSlider.value);
+
+        if (spikeVelocity > activeThreshold && (now - lastTriggerTime) > MIN_HIT_COOLDOWN && hitPointer < 5) {
+            triggerTargetArrayHit();
+            lastTriggerTime = now;
+        }
+
+        previousVolume = highFreqPeak;
+        requestAnimationFrame(processAudioLoop);
+    }
+
+    function triggerTargetArrayHit() {
+        const currentTargetID = targetIndexOrder[hitPointer];
+        const targetToMute = document.getElementById(`target${currentTargetID}`);
+        
+        if (targetToMute) {
+            targetToMute.classList.add('hit');
+            hitPointer++;
+        }
+
+        if (hitPointer === 5) {
+            checkAndRenderStreak(true);
+
+            setTimeout(() => {
+                for (let i = 1; i <= 5; i++) {
+                    const target = document.getElementById(`target${i}`);
+                    if (target) target.classList.remove('hit');
+                }
+                hitPointer = 0; 
+            }, RESPAWN_DELAY);
+        }
+    }
+</script>
 </body>
 </html>
