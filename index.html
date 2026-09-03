@@ -375,7 +375,7 @@
     const HARDCODED_FREQ = 9000; 
 
     let currentDirection = 'leftward'; 
-    let targetIndexOrder =; // FIXED syntax coordinates
+    let targetIndexOrder = "5,4,3,2,1".split(","); 
     let hitPointer = 0; 
 
     function updateParameters() {
@@ -429,11 +429,11 @@
             }
             
             if (storedStreak > 0) {
-                welcomeStreak.innerText = `Current Practice Streak: 🔥 ${storedStreak} Days`;
+                welcomeStreak.innerText = "Current Practice Streak: 🔥 " + storedStreak + " Days";
             } else {
                 welcomeStreak.innerText = '';
             }
-            streakCounter.innerText = `🔥 ${storedStreak}`;
+            streakCounter.innerText = "🔥 " + storedStreak;
             return;
         }
 
@@ -441,7 +441,7 @@
             storedStreak += 1;
             localStorage.setItem('df_streak_count', storedStreak);
             localStorage.setItem('df_last_practice_date', todayStr);
-            streakCounter.innerText = `🔥 ${storedStreak}`;
+            streakCounter.innerText = "🔥 " + storedStreak;
         }
     }
 
@@ -449,9 +449,9 @@
 
     beginBtn.addEventListener('click', async () => {
         if (currentDirection === 'leftward') {
-            targetIndexOrder =; // FIXED leftward sequence map
+            targetIndexOrder = "5,4,3,2,1".split(","); 
         } else {
-            targetIndexOrder =; // FIXED rightward sequence map
+            targetIndexOrder = "1,2,3,4,5".split(","); 
         }
         hitPointer = 0; 
 
@@ -531,7 +531,7 @@
 
     function triggerTargetArrayHit() {
         const currentTargetID = targetIndexOrder[hitPointer];
-        const targetToMute = document.getElementById(`target${currentTargetID}`);
+        const targetToMute = document.getElementById("target" + currentTargetID);
         
         if (targetToMute) {
             targetToMute.classList.add('hit');
@@ -543,7 +543,7 @@
 
             setTimeout(() => {
                 for (let i = 1; i <= 5; i++) {
-                    const target = document.getElementById(`target${i}`);
+                    const target = document.getElementById("target" + i);
                     if (target) target.classList.remove('hit');
                 }
                 hitPointer = 0; 
