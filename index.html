@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instantaneous Sound A Detector</title>
+    <title>Precision Sound A Detector</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -11,7 +11,7 @@
             background-color: #0f172a;
             color: #ffffff;
             margin: 0;
-            padding: 40px;
+            padding: 30px;
         }
         .container { max-width: 500px; margin: 0 auto; }
         button {
@@ -24,16 +24,15 @@
             color: white;
             font-weight: bold;
             margin-bottom: 25px;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
-        button:disabled { background-color: #475569; box-shadow: none; }
+        button:disabled { background-color: #475569; }
         .event-box {
-            font-size: 32px;
+            font-size: 30px;
             font-weight: bold;
-            padding: 35px;
+            padding: 30px;
             border-radius: 12px;
             background-color: #1e293b;
-            transition: background-color 0.05s ease;
+            transition: background 0.05s ease;
             min-height: 40px;
             border: 2px solid #334155;
         }
@@ -41,60 +40,52 @@
             background-color: #0284c7; 
             border-color: #38bdf8;
             color: white; 
-            box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
         }
-        
-        .controls {
-            margin-top: 30px;
+        .debug {
+            margin-top: 20px;
             background: #1e293b;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 15px;
+            border-radius: 8px;
             text-align: left;
+            font-family: monospace;
+            font-size: 13px;
+            color: #94a3b8;
         }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-size: 14px; color: #94a3b8; margin-bottom: 5px; }
-        input[type=range] { width: 100%; }
-        .val { float: right; color: #38bdf8; font-weight: bold; }
+        .debug div { margin-bottom: 5px; }
+        .highlight { color: #38bdf8; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Instantaneous Sound A Detector</h1>
-    <p>Zero-latency bandpass analysis tuned to Sound A's acoustic pop.</p>
+    <h1>Sound A Precision Detector</h1>
+    <p>Uses Transient Attack Rate + Spectral Concentration Ratio</p>
 
     <button id="startButton">Start Listening</button>
 
     <div id="display" class="event-box">Inactive</div>
 
-    <div class="controls">
-        <div class="control-group">
-            <label>Target Frequency (Sound A Pitch): <span id="freq-val" class="val">1600 Hz</span></label>
-            <input type="range" id="freq-slider" min="800" max="3000" value="1600" step="50">
-        </div>
-
-        <div class="control-group">
-            <label>Detection Threshold: <span id="thresh-val" class="val">18</span></label>
-            <input type="range" id="thresh-slider" min="5" max="60" value="18">
-        </div>
+    <div class="debug">
+        <div>Target Band Energy: <span id="target-e" class="highlight">0</span></div>
+        <div>Surround Band Energy: <span id="surround-e" class="highlight">0</span></div>
+        <div>Spectral Ratio (Target/Total): <span id="ratio-val" class="highlight">0</span></div>
+        <div>Status: <span id="log">Click Start to begin.</span></div>
     </div>
 </div>
 
 <script>
     const startBtn = document.getElementById('startButton');
     const displayDiv = document.getElementById('display');
-    const freqSlider = document.getElementById('freq-slider');
-    const threshSlider = document.getElementById('thresh-slider');
-    const freqVal = document.getElementById('freq-val');
-    const threshVal = document.getElementById('thresh-val');
+    const targetE = document.getElementById('target-e');
+    const surroundE = document.getElementById('surround-e');
+    const ratioVal = document.getElementById('ratio-val');
+    const logDiv = document.getElementById('log');
 
     let audioContext;
     let analyser;
     let isListening = false;
     let isProcessing = false;
-
-    freqSlider.oninput = () => freqVal.innerText = freqSlider.value + " Hz";
-    threshSlider.oninput = () => threshVal.innerText = threshSlider.value;
 
     startBtn.addEventListener('click', async () => {
         if (isListening) return;
@@ -109,88 +100,91 @@
             });
             
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const source = audioContext.createMediaStreamSource(stream);
-
-            // 1. Narrow Bandpass Filter tuned to Sound A's resonant frequency
-            const bandpass = audioContext.createBiquadFilter();
-            bandpass.type = "bandpass";
-            bandpass.frequency.value = parseInt(freqSlider.value);
-            bandpass.Q.value = 4.0; // High Q isolates Sound A's specific tone from claps
-
-            // 2. Highpass Filter to strip away low-frequency room rumble
-            const highpass = audioContext.createBiquadFilter();
-            highpass.type = "highpass";
-            highpass.frequency.value = 800;
-
-            // 3. Ultra-small Analyser Node for immediate sample reads
             analyser = audioContext.createAnalyser();
-            analyser.fftSize = 32; // Smallest allowable FFT size for sub-millisecond execution
+            
+            // 128 FFT gives ultra-fast frame updates (~2.6ms per frame)
+            analyser.fftSize = 128;
+            analyser.smoothingTimeConstant = 0.0; // Zero smoothing for maximum transient speed
 
-            // Connect processing graph
-            source.connect(highpass);
-            highpass.connect(bandpass);
-            bandpass.connect(analyser);
-
-            // Dynamically update filter frequency when slider moves
-            freqSlider.addEventListener('input', () => {
-                bandpass.frequency.value = parseInt(freqSlider.value);
-            });
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
 
             isListening = true;
             startBtn.disabled = true;
-            displayDiv.innerText = "Listening for Sound A...";
+            displayDiv.innerText = "Listening...";
+            logDiv.innerText = "Active and processing...";
 
-            processInstantaneousAudio();
+            analyzeAudio();
         } catch (err) {
-            alert("Microphone access failed: " + err.message);
+            alert("Microphone error: " + err.message);
         }
     });
 
-    function processInstantaneousAudio() {
-        const bufferLength = analyser.fftSize;
-        const timeData = new Uint8Array(bufferLength);
+    function analyzeAudio() {
+        const bufferLength = analyser.frequencyBinCount; // 64 bins
+        const freqData = new Uint8Array(bufferLength);
 
-        function checkFrame() {
+        // At 48kHz sample rate, each bin is ~375Hz wide
+        // Bins 4 to 7 = ~1500Hz - 2625Hz (Sound A's core pop resonance)
+        // Bins 0-3 & 8-20 = Lows, Mids & Highs (Clap wideband noise)
+
+        function frame() {
             if (!isListening) return;
 
-            // Read raw PCM wave sample values directly
-            analyser.getByteTimeDomainData(timeData);
+            analyser.getByteFrequencyData(freqData);
 
-            let maxDeviation = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                const deviation = Math.abs(timeData[i] - 128);
-                if (deviation > maxDeviation) {
-                    maxDeviation = deviation;
+            // 1. Calculate Target Pop Band Energy
+            let popEnergy = 0;
+            for (let i = 4; i <= 7; i++) {
+                popEnergy += freqData[i];
+            }
+            popEnergy /= 4;
+
+            // 2. Calculate Surrounding/Wideband Energy
+            let wideEnergy = 0;
+            let wideCount = 0;
+            // Lower bins (rumble/bass)
+            for (let i = 0; i <= 2; i++) { wideEnergy += freqData[i]; wideCount++; }
+            // Higher bins (clap splash)
+            for (let i = 9; i <= 22; i++) { wideEnergy += freqData[i]; wideCount++; }
+            wideEnergy /= wideCount;
+
+            // 3. Spectral Concentration Ratio
+            const total = popEnergy + wideEnergy;
+            const concentrationRatio = total > 0 ? (popEnergy / total) : 0;
+
+            // Update Debug View
+            targetE.innerText = Math.round(popEnergy);
+            surroundE.innerText = Math.round(wideEnergy);
+            ratioVal.innerText = concentrationRatio.toFixed(2);
+
+            // DETECTION CONDITION:
+            // Sound A requires:
+            // - Strong energy in its specific pop band (> 35)
+            // - High concentration ratio (> 0.58) meaning it's NOT a wideband clap
+            if (!isProcessing) {
+                if (popEnergy > 35 && concentrationRatio > 0.58) {
+                    triggerSoundA(popEnergy, concentrationRatio);
                 }
             }
 
-            const threshold = parseInt(threshSlider.value);
-
-            if (!isProcessing && maxDeviation >= threshold) {
-                triggerInstantA();
-            }
-
-            requestAnimationFrame(checkFrame);
+            requestAnimationFrame(frame);
         }
 
-        checkFrame();
+        frame();
     }
 
-    function triggerInstantA() {
+    function triggerSoundA(energy, ratio) {
         isProcessing = true;
-        
-        // Execute trigger UI immediately
         displayDiv.innerText = "SOUND A DETECTED!";
         displayDiv.className = "event-box event-a";
-
-        // Place your custom instantaneous trigger code here:
-        console.log("Sound A detected instantly at: " + performance.now() + "ms");
+        logDiv.innerText = `Triggered! (Energy: ${Math.round(energy)}, Ratio: ${ratio.toFixed(2)})`;
 
         setTimeout(() => {
-            displayDiv.innerText = "Listening for Sound A...";
+            displayDiv.innerText = "Listening...";
             displayDiv.className = "event-box";
             isProcessing = false;
-        }, 350);
+        }, 300);
     }
 </script>
 </body>
