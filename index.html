@@ -3,146 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Click vs Double-Clap Detector</title>
+    <title>Calibrated Sound Classifier</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
             text-align: center;
             background-color: #121212;
             color: #ffffff;
-            margin-top: 60px;
+            margin: 0;
+            padding: 30px;
         }
+        .container { max-width: 650px; margin: 0 auto; }
         button {
-            padding: 14px 28px;
-            font-size: 18px;
+            padding: 12px 24px;
+            font-size: 16px;
             cursor: pointer;
             border: none;
             border-radius: 6px;
             background-color: #2563eb;
             color: white;
             font-weight: bold;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         button:disabled { background-color: #475569; }
-        #status { font-size: 18px; color: #94a3b8; margin-bottom: 25px; }
         .event-box {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
-            padding: 24px;
-            border-radius: 12px;
-            display: inline-block;
-            min-width: 320px;
+            padding: 20px;
+            border-radius: 10px;
             background-color: #1e293b;
-            transition: background-color 0.15s ease;
+            margin-bottom: 25px;
+            transition: background-color 0.1s ease;
         }
-        .event-a { background-color: #0284c7; color: white; } /* Blue for Event A (Click) */
-        .event-b { background-color: #16a34a; color: white; } /* Green for Event B (Claps) */
+        .event-a { background-color: #0284c7; } /* Event A - Click */
+        .event-b { background-color: #16a34a; } /* Event B - Clap */
+        
+        canvas {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+        }
+        .meter-group { margin-bottom: 15px; }
+        .meter-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px; }
+        .meter-bar-bg { width: 100%; height: 12px; background: #334155; border-radius: 6px; overflow: hidden; }
+        .meter-bar-fill { height: 100%; width: 0%; transition: width 0.05s linear; }
+        #fill-a { background: #38bdf8; }
+        #fill-b { background: #4ade80; }
+        
+        .slider-container { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        label { font-size: 14px; color: #cbd5e1; }
+        input[type=range] { width: 100%; }
     </style>
 </head>
 <body>
 
-    <h1>Audio Event Classifier</h1>
-    <p>Distinguishes <strong>Event A</strong> (Click) from <strong>Event B</strong> (Double Clap)</p>
-    
+<div class="container">
+    <h1>Audio Classifier Calibration</h1>
     <button id="startButton">Start Listening</button>
-    <div id="status">Microphone inactive.</div>
 
     <div id="display" class="event-box">Waiting for sound...</div>
 
-    <script>
-        const startBtn = document.getElementById('startButton');
-        const statusDiv = document.getElementById('status');
-        const displayDiv = document.getElementById('display');
+    <canvas id="visualizer"></canvas>
 
-        let audioContext;
-        let analyser;
-        let isListening = false;
+    <div class="controls">
+        <h3>Live Audio Meters</h3>
         
-        let isProcessing = false;
-        let clapTimer = null;
+        <div class="meter-group">
+            <div class="meter-label">
+                <span>High Freq Energy (Event A Target)</span>
+                <span id="val-a">0 / Max: 0</span>
+            </div>
+            <div class="meter-bar-bg"><div id="fill-a" class="meter-bar-fill"></div></div>
+        </div>
 
-        startBtn.addEventListener('click', async () => {
-            if (isListening) return;
+        <div class="meter-group">
+            <div class="meter-label">
+                <span>Mid Freq Energy (Event B Target)</span>
+                <span id="val-b">0 / Max: 0</span>
+            </div>
+            <div class="meter-bar-bg"><div id="fill-b" class="meter-bar-fill"></div></div>
+        </div>
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
+        <hr style="border-color: #334155; margin: 20px 0;">
 
-                const microphone = audioContext.createMediaStreamSource(stream);
-                microphone.connect(analyser);
+        <div class="slider-container">
+            <label>Event A Sensitivity Threshold: <span id="thresh-a-val">30</span></label>
+            <input type="range" id="thresh-a" min="5" max="150" value="30">
 
-                isListening = true;
-                startBtn.disabled = true;
-                statusDiv.innerText = "Listening...";
+            <label>Event B Sensitivity Threshold: <span id="thresh-b-val">40</span></label>
+            <input type="range" id="thresh-b" min="5" max="150" value="40">
+        </div>
+    </div>
+</div>
 
-                detectEvents();
-            } catch (err) {
-                alert("Microphone access failed: " + err.message);
+<script>
+    const startBtn = document.getElementById('startButton');
+    const displayDiv = document.getElementById('display');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+
+    const fillA = document.getElementById('fill-a');
+    const fillB = document.getElementById('fill-b');
+    const valA = document.getElementById('val-a');
+    const valB = document.getElementById('val-b');
+
+    const threshASlider = document.getElementById('thresh-a');
+    const threshBSlider = document.getElementById('thresh-b');
+    const threshAVal = document.getElementById('thresh-a-val');
+    const threshBVal = document.getElementById('thresh-b-val');
+
+    let audioContext, analyser, isListening = false, isProcessing = false;
+    let maxA = 0, maxB = 0;
+
+    threshASlider.oninput = () => threshAVal.innerText = threshASlider.value;
+    threshBSlider.oninput = () => threshBVal.innerText = threshBSlider.value;
+
+    startBtn.addEventListener('click', async () => {
+        if (isListening) return;
+
+        try {
+            // Disable built-in browser noise suppression to keep raw click transients intact
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { noiseSuppression: false, echoCancellation: false } 
+            });
+            
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+
+            const microphone = audioContext.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+
+            isListening = true;
+            startBtn.disabled = true;
+
+            processAudio();
+        } catch (err) {
+            alert("Microphone access failed: " + err.message);
+        }
+    });
+
+    function processAudio() {
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function render() {
+            if (!isListening) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // Draw FFT Visualizer Spectrum
+            canvasCtx.fillStyle = '#000';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let x = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height;
+                canvasCtx.fillStyle = i > 30 ? '#38bdf8' : '#4ade80';
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                x += barWidth + 1;
             }
-        });
 
-        function detectEvents() {
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+            // Calculate High Freq Energy (>4 kHz) -> Event A
+            let highEnergy = 0;
+            let highCount = 0;
+            for (let i = 30; i < bufferLength; i++) {
+                highEnergy += dataArray[i];
+                highCount++;
+            }
+            const avgA = Math.round(highEnergy / highCount);
 
-            function analyzeFrame() {
-                if (!isListening) return;
+            // Calculate Mid Freq Energy (1 kHz - 3.5 kHz) -> Event B
+            let midEnergy = 0;
+            let midCount = 0;
+            for (let i = 8; i <= 28; i++) {
+                midEnergy += dataArray[i];
+                midCount++;
+            }
+            const avgB = Math.round(midEnergy / midCount);
 
-                analyser.getByteFrequencyData(dataArray);
+            // Update Meters
+            if (avgA > maxA) maxA = avgA;
+            if (avgB > maxB) maxB = avgB;
+            
+            fillA.style.width = Math.min(100, (avgA / 150) * 100) + '%';
+            fillB.style.width = Math.min(100, (avgB / 150) * 100) + '%';
+            valA.innerText = `${avgA} / Max: ${maxA}`;
+            valB.innerText = `${avgB} / Max: ${maxB}`;
 
-                // Ultra-high frequencies (>4 kHz)
-                let ultraHighEnergy = 0;
-                for (let i = 40; i < 90 && i < bufferLength; i++) {
-                    ultraHighEnergy += dataArray[i];
+            // Detection Logic
+            const threshA = parseInt(threshASlider.value);
+            const threshB = parseInt(threshBSlider.value);
+
+            if (!isProcessing) {
+                // Event A Trigger (Click): High frequency spike dominant
+                if (avgA >= threshA && avgA > avgB * 0.8) {
+                    triggerDisplay("EVENT A: Click Detected", "event-a");
+                } 
+                // Event B Trigger (Clap): Mid frequency dominant
+                else if (avgB >= threshB) {
+                    triggerDisplay("EVENT B: Clap Detected", "event-b");
                 }
-                ultraHighEnergy /= 50;
-
-                // Mid-High frequencies (~1.5 kHz - 4 kHz)
-                let midEnergy = 0;
-                for (let i = 10; i < 35 && i < bufferLength; i++) {
-                    midEnergy += dataArray[i];
-                }
-                midEnergy /= 25;
-
-                const CLICK_THRESHOLD = 75;
-                const CLAP_THRESHOLD = 90;
-
-                if (!isProcessing) {
-                    // Detect Event A: Single sharp click
-                    if (ultraHighEnergy > CLICK_THRESHOLD && ultraHighEnergy > midEnergy * 1.1) {
-                        triggerEvent("EVENT A: Click", "event-a", 800);
-                    } 
-                    // Detect Event B: Initial Clap detected -> Start aggregation window
-                    else if (midEnergy > CLAP_THRESHOLD) {
-                        isProcessing = true;
-                        
-                        // Wait 500ms to allow both claps to finish before triggering Event B once
-                        clapTimer = setTimeout(() => {
-                            triggerEvent("EVENT B: Claps", "event-b", 800);
-                        }, 500);
-                    }
-                }
-
-                requestAnimationFrame(analyzeFrame);
             }
 
-            analyzeFrame();
+            requestAnimationFrame(render);
         }
 
-        function triggerEvent(label, cssClass, displayDuration) {
-            isProcessing = true;
-            displayDiv.innerText = label;
-            displayDiv.className = `event-box ${cssClass}`;
+        render();
+    }
 
-            setTimeout(() => {
-                displayDiv.innerText = "Waiting for sound...";
-                displayDiv.className = "event-box";
-                isProcessing = false;
-            }, displayDuration);
-        }
-    </script>
+    function triggerDisplay(text, cssClass) {
+        isProcessing = true;
+        displayDiv.innerText = text;
+        displayDiv.className = `event-box ${cssClass}`;
+
+        setTimeout(() => {
+            displayDiv.innerText = "Waiting for sound...";
+            displayDiv.className = "event-box";
+            isProcessing = false;
+        }, 500);
+    }
+</script>
 </body>
 </html>
