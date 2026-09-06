@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event A Exclusive Detector</title>
+    <title>Event A Peak Detector</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -35,121 +35,117 @@
             transition: background-color 0.1s ease;
             min-height: 50px;
         }
-        .event-a { background-color: #0284c7; color: white; } /* Blue for Event A */
+        .event-a { background-color: #0284c7; color: white; }
         
-        .sensitivity-control {
-            margin-top: 30px;
+        .meter {
             background: #1e293b;
             padding: 20px;
             border-radius: 8px;
+            margin-top: 20px;
             text-align: left;
         }
-        input[type=range] { width: 100%; margin-top: 10px; }
+        .bar-bg { width: 100%; height: 16px; background: #334155; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        .bar-fill { height: 100%; width: 0%; background: #38bdf8; transition: width 0.03s ease; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Event A Detector</h1>
-    <p>Triggers <strong>ONLY</strong> on Event A. Ignores all other sounds.</p>
+    <h1>Event A Waveform Peak Detector</h1>
+    <p>Triggers on sudden short-duration transients (Event A).</p>
 
     <button id="startButton">Start Listening</button>
 
-    <div id="display" class="event-box">Listening inactive</div>
+    <div id="display" class="event-box">Inactive</div>
 
-    <div class="sensitivity-control">
-        <label for="threshold">Event A Sensitivity Slope Threshold: <strong id="thresh-val">15</strong></label>
-        <input type="range" id="threshold" min="5" max="60" value="15">
-        <p style="font-size: 12px; color: #94a3b8; margin-top: 8px; margin-bottom: 0;">
-            • Lower value = More sensitive to light clicks.<br>
-            • Higher value = Only sharp/loud clicks trigger.
-        </p>
+    <div class="meter">
+        <div>Instantaneous Peak Amplitude: <strong id="peak-val">0</strong></div>
+        <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
     </div>
 </div>
 
 <script>
     const startBtn = document.getElementById('startButton');
     const displayDiv = document.getElementById('display');
-    const threshSlider = document.getElementById('threshold');
-    const threshVal = document.getElementById('thresh-val');
+    const peakVal = document.getElementById('peak-val');
+    const bar = document.getElementById('bar');
 
     let audioContext;
     let analyser;
     let isListening = false;
     let isProcessing = false;
-    let previousHighFreqEnergy = 0;
-
-    threshSlider.oninput = () => threshVal.innerText = threshSlider.value;
 
     startBtn.addEventListener('click', async () => {
         if (isListening) return;
 
         try {
-            // Raw microphone stream without browser noise filtering
+            // High-pass filter via AudioContext to eliminate lower/mid clap resonances
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: { 
+                    echoCancellation: false, 
                     noiseSuppression: false, 
-                    echoCancellation: false,
                     autoGainControl: false 
                 } 
             });
             
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            
-            // FFT Size 128 gives ultra-fast temporal resolution to capture sudden click spikes
-            analyser.fftSize = 128; 
+            const source = audioContext.createMediaStreamSource(stream);
 
-            const microphone = audioContext.createMediaStreamSource(stream);
-            microphone.connect(analyser);
+            // Filter out everything below 4000 Hz (Clap mid-range body)
+            const highpass = audioContext.createBiquadFilter();
+            highpass.type = "highpass";
+            highpass.frequency.value = 4000;
+
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 64; // Tiny buffer size to catch extremely fast clicks
+
+            source.connect(highpass);
+            highpass.connect(analyser);
 
             isListening = true;
             startBtn.disabled = true;
-            displayDiv.innerText = "Waiting for Event A...";
+            displayDiv.innerText = "Listening for Event A...";
 
-            detectEventA();
+            detectPeak();
         } catch (err) {
             alert("Microphone access failed: " + err.message);
         }
     });
 
-    function detectEventA() {
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+    function detectPeak() {
+        const bufferLength = analyser.fftSize;
+        const timeData = new Uint8Array(bufferLength);
 
-        function analyzeFrame() {
+        function analyze() {
             if (!isListening) return;
 
-            analyser.getByteFrequencyData(dataArray);
+            // Get raw PCM time-domain amplitude instead of frequency spectrum
+            analyser.getByteTimeDomainData(timeData);
 
-            // Isolate upper high-frequency bins (Top 30% of spectrum)
-            let highFreqEnergy = 0;
-            let count = 0;
-            const startBin = Math.floor(bufferLength * 0.6); // Upper spectrum
-            
-            for (let i = startBin; i < bufferLength; i++) {
-                highFreqEnergy += dataArray[i];
-                count++;
-            }
-            const currentEnergy = highFreqEnergy / count;
-
-            // Calculate the sudden rise (delta) between current frame and previous frame
-            const energyDelta = currentEnergy - previousHighFreqEnergy;
-            previousHighFreqEnergy = currentEnergy;
-
-            const targetThreshold = parseInt(threshSlider.value);
-
-            if (!isProcessing) {
-                // Event A fires ONLY if energy jumps suddenly above the slope threshold
-                if (energyDelta >= targetThreshold) {
-                    triggerEventA();
+            // Calculate peak displacement from center (128)
+            let maxPeak = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const deviation = Math.abs(timeData[i] - 128);
+                if (deviation > maxPeak) {
+                    maxPeak = deviation;
                 }
             }
 
-            requestAnimationFrame(analyzeFrame);
+            // Update UI meter
+            peakVal.innerText = maxPeak;
+            bar.style.width = Math.min(100, (maxPeak / 64) * 100) + '%';
+
+            // Trigger threshold for filtered high-pass click peak
+            const PEAK_THRESHOLD = 12; 
+
+            if (!isProcessing && maxPeak >= PEAK_THRESHOLD) {
+                triggerEventA();
+            }
+
+            requestAnimationFrame(analyze);
         }
 
-        analyzeFrame();
+        analyze();
     }
 
     function triggerEventA() {
@@ -157,14 +153,11 @@
         displayDiv.innerText = "EVENT A DETECTED!";
         displayDiv.className = "event-box event-a";
 
-        // Perform whatever action you need for Event A here
-        console.log("Event A triggered at: " + new Date().toISOString());
-
         setTimeout(() => {
-            displayDiv.innerText = "Waiting for Event A...";
+            displayDiv.innerText = "Listening for Event A...";
             displayDiv.className = "event-box";
             isProcessing = false;
-        }, 500);
+        }, 400);
     }
 </script>
 </body>
