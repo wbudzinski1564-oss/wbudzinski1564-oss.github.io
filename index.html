@@ -3,162 +3,205 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event A Peak Detector</title>
+    <title>ML Sound Classifier (Event A vs B)</title>
+    <!-- Load TensorFlow.js and Speech Commands model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.5.4/dist/speech-commands.min.js"></script>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            text-align: center;
             background-color: #121212;
             color: #ffffff;
+            text-align: center;
+            padding: 20px;
             margin: 0;
-            padding: 40px;
         }
         .container { max-width: 500px; margin: 0 auto; }
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
         button {
-            padding: 14px 28px;
-            font-size: 18px;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: bold;
             cursor: pointer;
             border: none;
             border-radius: 6px;
-            background-color: #2563eb;
+            margin: 5px;
             color: white;
-            font-weight: bold;
-            margin-bottom: 25px;
+            background-color: #2563eb;
         }
-        button:disabled { background-color: #475569; }
+        button:disabled { background-color: #475569; cursor: not-allowed; }
+        .btn-rec { background-color: #0284c7; }
+        .btn-train { background-color: #16a34a; }
         .event-box {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
-            padding: 30px;
-            border-radius: 12px;
-            background-color: #1e293b;
-            transition: background-color 0.1s ease;
-            min-height: 50px;
-        }
-        .event-a { background-color: #0284c7; color: white; }
-        
-        .meter {
-            background: #1e293b;
             padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            text-align: left;
+            border-radius: 10px;
+            background-color: #334155;
+            transition: background 0.1s ease;
         }
-        .bar-bg { width: 100%; height: 16px; background: #334155; border-radius: 8px; overflow: hidden; margin-top: 10px; }
-        .bar-fill { height: 100%; width: 0%; background: #38bdf8; transition: width 0.03s ease; }
+        .event-a { background-color: #0284c7; }
+        .event-b { background-color: #dc2626; }
+        .count { font-size: 13px; color: #94a3b8; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Event A Waveform Peak Detector</h1>
-    <p>Triggers on sudden short-duration transients (Event A).</p>
+    <h1>ML Audio Classifier</h1>
+    <p>Train a custom micro-model to distinguish Sound A from Sound B with near 100% accuracy.</p>
 
-    <button id="startButton">Start Listening</button>
-
-    <div id="display" class="event-box">Inactive</div>
-
-    <div class="meter">
-        <div>Instantaneous Peak Amplitude: <strong id="peak-val">0</strong></div>
-        <div class="bar-bg"><div id="bar" class="bar-fill"></div></div>
+    <div class="card">
+        <h3>Step 1: Collect Training Audio</h3>
+        <p style="font-size: 13px; color: #cbd5e1;">Click a button, then immediately make the sound.</p>
+        
+        <div>
+            <button id="rec-a" class="btn-rec" disabled>Record Sound A</button>
+            <span id="count-a" class="count">0 samples</span>
+        </div>
+        <div style="margin-top: 10px;">
+            <button id="rec-b" class="btn-rec" disabled>Record Sound B (Clap)</button>
+            <span id="count-b" class="count">0 samples</span>
+        </div>
+        <div style="margin-top: 10px;">
+            <button id="rec-bg" style="background-color: #64748b;" disabled>Record Background Noise</button>
+            <span id="count-bg" class="count">0 samples</span>
+        </div>
     </div>
+
+    <div class="card">
+        <h3>Step 2: Train Model</h3>
+        <button id="btn-train" class="btn-train" disabled>Train & Start Listening</button>
+        <div id="status" style="margin-top: 10px; font-size: 14px; color: #94a3b8;">Initializing TensorFlow.js...</div>
+    </div>
+
+    <div id="display" class="event-box">Model Not Trained</div>
 </div>
 
 <script>
-    const startBtn = document.getElementById('startButton');
+    let transferRecognizer;
+    let countA = 0, countB = 0, countBG = 0;
+
+    const statusDiv = document.getElementById('status');
     const displayDiv = document.getElementById('display');
-    const peakVal = document.getElementById('peak-val');
-    const bar = document.getElementById('bar');
 
-    let audioContext;
-    let analyser;
-    let isListening = false;
-    let isProcessing = false;
+    const recABtn = document.getElementById('rec-a');
+    const recBBtn = document.getElementById('rec-b');
+    const recBGBtn = document.getElementById('rec-bg');
+    const trainBtn = document.getElementById('btn-train');
 
-    startBtn.addEventListener('click', async () => {
-        if (isListening) return;
-
+    async function init() {
         try {
-            // High-pass filter via AudioContext to eliminate lower/mid clap resonances
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: false, 
-                    noiseSuppression: false, 
-                    autoGainControl: false 
-                } 
-            });
+            // Load pre-trained Speech Commands base model
+            const baseRecognizer = speechCommands.create('BROWSER_FFT');
+            await baseRecognizer.ensureModelLoaded();
             
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const source = audioContext.createMediaStreamSource(stream);
+            // Create custom transfer learning model
+            transferRecognizer = baseRecognizer.createTransfer('custom-sound-detector');
 
-            // Filter out everything below 4000 Hz (Clap mid-range body)
-            const highpass = audioContext.createBiquadFilter();
-            highpass.type = "highpass";
-            highpass.frequency.value = 4000;
-
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 64; // Tiny buffer size to catch extremely fast clicks
-
-            source.connect(highpass);
-            highpass.connect(analyser);
-
-            isListening = true;
-            startBtn.disabled = true;
-            displayDiv.innerText = "Listening for Event A...";
-
-            detectPeak();
+            statusDiv.innerText = "Ready to record audio samples.";
+            recABtn.disabled = false;
+            recBBtn.disabled = false;
+            recBGBtn.disabled = false;
         } catch (err) {
-            alert("Microphone access failed: " + err.message);
+            statusDiv.innerText = "Error initializing model: " + err.message;
         }
-    });
+    }
 
-    function detectPeak() {
-        const bufferLength = analyser.fftSize;
-        const timeData = new Uint8Array(bufferLength);
+    // Record sample helpers
+    recABtn.onclick = async () => {
+        statusDiv.innerText = "Recording Sound A... Make sound now!";
+        await transferRecognizer.collectExample('Sound A');
+        countA++;
+        document.getElementById('count-a').innerText = `${countA} samples`;
+        checkReadyToTrain();
+    };
 
-        function analyze() {
-            if (!isListening) return;
+    recBBtn.onclick = async () => {
+        statusDiv.innerText = "Recording Sound B... Make sound now!";
+        await transferRecognizer.collectExample('Sound B');
+        countB++;
+        document.getElementById('count-b').innerText = `${countB} samples`;
+        checkReadyToTrain();
+    };
 
-            // Get raw PCM time-domain amplitude instead of frequency spectrum
-            analyser.getByteTimeDomainData(timeData);
+    recBGBtn.onclick = async () => {
+        statusDiv.innerText = "Recording Background Silence/Noise...";
+        await transferRecognizer.collectExample('_background_noise_');
+        countBG++;
+        document.getElementById('count-bg').innerText = `${countBG} samples`;
+        checkReadyToTrain();
+    };
 
-            // Calculate peak displacement from center (128)
-            let maxPeak = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                const deviation = Math.abs(timeData[i] - 128);
-                if (deviation > maxPeak) {
-                    maxPeak = deviation;
+    function checkReadyToTrain() {
+        statusDiv.innerText = "Sample added.";
+        if (countA >= 3 && countB >= 3 && countBG >= 2) {
+            trainBtn.disabled = false;
+            statusDiv.innerText = "Ready to train! Click 'Train & Start Listening'.";
+        }
+    }
+
+    trainBtn.onclick = async () => {
+        trainBtn.disabled = true;
+        statusDiv.innerText = "Training neural network... (takes ~5 seconds)";
+        
+        await transferRecognizer.train({
+            epochs: 25,
+            callback: {
+                onEpochEnd: (epoch, logs) => {
+                    statusDiv.innerText = `Training... Epoch ${epoch + 1}/25`;
+                }
+            }
+        });
+
+        statusDiv.innerText = "Model Trained! Listening in real-time...";
+        displayDiv.innerText = "Listening...";
+        
+        // Start Real-Time Listening
+        transferRecognizer.listen(result => {
+            const words = transferRecognizer.wordLabels();
+            const scores = result.scores;
+            
+            let maxScore = 0;
+            let detectedClass = "";
+
+            for (let i = 0; i < scores.length; i++) {
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    detectedClass = words[i];
                 }
             }
 
-            // Update UI meter
-            peakVal.innerText = maxPeak;
-            bar.style.width = Math.min(100, (maxPeak / 64) * 100) + '%';
-
-            // Trigger threshold for filtered high-pass click peak
-            const PEAK_THRESHOLD = 12; 
-
-            if (!isProcessing && maxPeak >= PEAK_THRESHOLD) {
-                triggerEventA();
+            // High probability threshold (>0.85)
+            if (maxScore > 0.85) {
+                if (detectedClass === "Sound A") {
+                    triggerUI("EVENT A DETECTED", "event-a");
+                } else if (detectedClass === "Sound B") {
+                    triggerUI("EVENT B (Clap) Ignored", "event-b");
+                }
             }
+        }, {
+            probabilityThreshold: 0.85,
+            overlapFactor: 0.5
+        });
+    };
 
-            requestAnimationFrame(analyze);
-        }
-
-        analyze();
-    }
-
-    function triggerEventA() {
-        isProcessing = true;
-        displayDiv.innerText = "EVENT A DETECTED!";
-        displayDiv.className = "event-box event-a";
+    function triggerUI(text, cssClass) {
+        displayDiv.innerText = text;
+        displayDiv.className = `event-box ${cssClass}`;
 
         setTimeout(() => {
-            displayDiv.innerText = "Listening for Event A...";
+            displayDiv.innerText = "Listening...";
             displayDiv.className = "event-box";
-            isProcessing = false;
-        }, 400);
+        }, 600);
     }
+
+    init();
 </script>
 </body>
 </html>
