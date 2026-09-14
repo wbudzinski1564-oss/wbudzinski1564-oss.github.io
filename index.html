@@ -3,188 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Precision Sound A Detector</title>
+    <title>Sound Detector</title>
     <style>
+        :root {
+            --bg-color: #121212;
+            --card-color: #1e1e1e;
+            --accent-color: #00adb5;
+            --text-color: #eeeeee;
+            --flash-color: #ff2e63;
+        }
+
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            text-align: center;
-            background-color: #0f172a;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
-            padding: 30px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            transition: background-color 0.1s ease;
         }
-        .container { max-width: 500px; margin: 0 auto; }
-        button {
-            padding: 16px 32px;
-            font-size: 18px;
-            cursor: pointer;
-            border: none;
-            border-radius: 8px;
-            background-color: #2563eb;
-            color: white;
+
+        body.flash {
+            background-color: var(--flash-color);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-color);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        h1 { margin-top: 0; font-size: 1.5rem; }
+
+        .counter-box {
+            font-size: 3rem;
             font-weight: bold;
-            margin-bottom: 25px;
+            color: var(--accent-color);
+            margin: 20px 0;
         }
-        button:disabled { background-color: #475569; }
-        .event-box {
-            font-size: 30px;
-            font-weight: bold;
-            padding: 30px;
-            border-radius: 12px;
-            background-color: #1e293b;
-            transition: background 0.05s ease;
-            min-height: 40px;
-            border: 2px solid #334155;
+
+        .status {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 20px;
         }
-        .event-a { 
-            background-color: #0284c7; 
-            border-color: #38bdf8;
-            color: white; 
-            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
-        }
-        .debug {
-            margin-top: 20px;
-            background: #1e293b;
-            padding: 15px;
-            border-radius: 8px;
+
+        .control-group {
+            margin-bottom: 20px;
             text-align: left;
-            font-family: monospace;
-            font-size: 13px;
-            color: #94a3b8;
         }
-        .debug div { margin-bottom: 5px; }
-        .highlight { color: #38bdf8; font-weight: bold; }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: #bbb;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-color);
+        }
+
+        .value-display {
+            float: right;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0, 173, 181, 0.3);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Visual volume meter bar */
+        .meter-container {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        #volume-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-color);
+            transition: width 0.05s ease;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Sound A Precision Detector</h1>
-    <p>Uses Transient Attack Rate + Spectral Concentration Ratio</p>
+    <h1>Noise Detector</h1>
+    
+    <div class="counter-box" id="count-display">0</div>
+    <div class="status" id="status-display">Status: Stopped</div>
 
-    <button id="startButton">Start Listening</button>
-
-    <div id="display" class="event-box">Inactive</div>
-
-    <div class="debug">
-        <div>Target Band Energy: <span id="target-e" class="highlight">0</span></div>
-        <div>Surround Band Energy: <span id="surround-e" class="highlight">0</span></div>
-        <div>Spectral Ratio (Target/Total): <span id="ratio-val" class="highlight">0</span></div>
-        <div>Status: <span id="log">Click Start to begin.</span></div>
+    <div class="meter-container">
+        <div id="volume-bar"></div>
     </div>
+
+    <div class="control-group">
+        <label>Sensitivity Threshold: <span class="value-display" id="threshold-val">50</span></label>
+        <input type="range" id="threshold-slider" min="5" max="100" value="50">
+    </div>
+
+    <div class="control-group">
+        <label>Cool-down Delay: <span class="value-display" id="cooldown-val">500ms</span></label>
+        <input type="range" id="cooldown-slider" min="100" max="2000" step="50" value="500">
+    </div>
+
+    <button id="start-btn">Allow Mic & Start</button>
 </div>
 
 <script>
-    const startBtn = document.getElementById('startButton');
-    const displayDiv = document.getElementById('display');
-    const targetE = document.getElementById('target-e');
-    const surroundE = document.getElementById('surround-e');
-    const ratioVal = document.getElementById('ratio-val');
-    const logDiv = document.getElementById('log');
-
-    let audioContext;
-    let analyser;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
     let isListening = false;
-    let isProcessing = false;
+    let isOnCooldown = false;
+    let count = 0;
 
-    startBtn.addEventListener('click', async () => {
-        if (isListening) return;
+    // DOM Elements
+    const startBtn = document.getElementById('start-btn');
+    const statusDisplay = document.getElementById('status-display');
+    const countDisplay = document.getElementById('count-display');
+    const volumeBar = document.getElementById('volume-bar');
+    
+    const thresholdSlider = document.getElementById('threshold-slider');
+    const thresholdVal = document.getElementById('threshold-val');
+    const cooldownSlider = document.getElementById('cooldown-slider');
+    const cooldownVal = document.getElementById('cooldown-val');
+
+    // Update Slider UI Labels
+    thresholdSlider.oninput = () => thresholdVal.innerText = thresholdSlider.value;
+    cooldownSlider.oninput = () => cooldownVal.innerText = cooldownSlider.value + 'ms';
+
+    startBtn.onclick = async () => {
+        if (isListening) return; // Already running
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { 
-                    echoCancellation: false, 
-                    noiseSuppression: false, 
-                    autoGainControl: false 
-                } 
-            });
+            // 1. Request microphone permission
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             
+            // 2. Initialize Audio Nodes
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
             analyser = audioContext.createAnalyser();
             
-            // 128 FFT gives ultra-fast frame updates (~2.6ms per frame)
-            analyser.fftSize = 128;
-            analyser.smoothingTimeConstant = 0.0; // Zero smoothing for maximum transient speed
-
-            const source = audioContext.createMediaStreamSource(stream);
+            // Fast polling config
+            analyser.fftSize = 256; 
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
             source.connect(analyser);
-
+            
             isListening = true;
-            startBtn.disabled = true;
-            displayDiv.innerText = "Listening...";
-            logDiv.innerText = "Active and processing...";
-
-            analyzeAudio();
+            statusDisplay.innerText = "Status: Listening...";
+            startBtn.style.display = 'none'; // Hide button once authorized
+            
+            // 3. Start processing loop
+            detectSound();
+            
         } catch (err) {
-            alert("Microphone error: " + err.message);
+            alert("Microphone access denied or unsupported on this browser.");
+            statusDisplay.innerText = "Status: Permission Error";
+            console.error(err);
         }
-    });
+    };
 
-    function analyzeAudio() {
-        const bufferLength = analyser.frequencyBinCount; // 64 bins
-        const freqData = new Uint8Array(bufferLength);
+    function detectSound() {
+        if (!isListening) return;
 
-        // At 48kHz sample rate, each bin is ~375Hz wide
-        // Bins 4 to 7 = ~1500Hz - 2625Hz (Sound A's core pop resonance)
-        // Bins 0-3 & 8-20 = Lows, Mids & Highs (Clap wideband noise)
+        // Pull the frequency/amplitude data
+        analyser.getByteFrequencyData(dataArray);
 
-        function frame() {
-            if (!isListening) return;
-
-            analyser.getByteFrequencyData(freqData);
-
-            // 1. Calculate Target Pop Band Energy
-            let popEnergy = 0;
-            for (let i = 4; i <= 7; i++) {
-                popEnergy += freqData[i];
+        // Find the absolute highest peak value in the current audio chunk
+        let maxVolume = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > maxVolume) {
+                maxVolume = dataArray[i];
             }
-            popEnergy /= 4;
-
-            // 2. Calculate Surrounding/Wideband Energy
-            let wideEnergy = 0;
-            let wideCount = 0;
-            // Lower bins (rumble/bass)
-            for (let i = 0; i <= 2; i++) { wideEnergy += freqData[i]; wideCount++; }
-            // Higher bins (clap splash)
-            for (let i = 9; i <= 22; i++) { wideEnergy += freqData[i]; wideCount++; }
-            wideEnergy /= wideCount;
-
-            // 3. Spectral Concentration Ratio
-            const total = popEnergy + wideEnergy;
-            const concentrationRatio = total > 0 ? (popEnergy / total) : 0;
-
-            // Update Debug View
-            targetE.innerText = Math.round(popEnergy);
-            surroundE.innerText = Math.round(wideEnergy);
-            ratioVal.innerText = concentrationRatio.toFixed(2);
-
-            // DETECTION CONDITION:
-            // Sound A requires:
-            // - Strong energy in its specific pop band (> 35)
-            // - High concentration ratio (> 0.58) meaning it's NOT a wideband clap
-            if (!isProcessing) {
-                if (popEnergy > 35 && concentrationRatio > 0.58) {
-                    triggerSoundA(popEnergy, concentrationRatio);
-                }
-            }
-
-            requestAnimationFrame(frame);
         }
 
-        frame();
+        // Convert byte range (0-255) to a clean 0-100 scale
+        const currentVolumeNormalized = Math.round((maxVolume / 255) * 100);
+        
+        // Dynamic visual feedback bar
+        if (!isOnCooldown) {
+            volumeBar.style.width = currentVolumeNormalized + '%';
+        }
+
+        const userThreshold = parseInt(thresholdSlider.value);
+
+        // Check if sound breaks past the limit
+        if (currentVolumeNormalized >= userThreshold && !isOnCooldown) {
+            triggerReaction();
+        }
+
+        // Keep loop ticking at screen refresh rate (~60fps to 120fps)
+        requestAnimationFrame(detectSound);
     }
 
-    function triggerSoundA(energy, ratio) {
-        isProcessing = true;
-        displayDiv.innerText = "SOUND A DETECTED!";
-        displayDiv.className = "event-box event-a";
-        logDiv.innerText = `Triggered! (Energy: ${Math.round(energy)}, Ratio: ${ratio.toFixed(2)})`;
+    function triggerReaction() {
+        isOnCooldown = true;
+        count++;
+        countDisplay.innerText = count;
+        statusDisplay.innerText = "Status: Ignored (Cooling down)";
+        
+        // Flash screen background
+        document.body.classList.add('flash');
+        volumeBar.style.width = '100%';
+        volumeBar.style.background = 'var(--flash-color)';
 
+        // Remove flash look quickly
         setTimeout(() => {
-            displayDiv.innerText = "Listening...";
-            displayDiv.className = "event-box";
-            isProcessing = false;
-        }, 300);
+            document.body.classList.remove('flash');
+        }, 150);
+
+        // Track user dynamic settings for delay
+        const cooldownDelay = parseInt(cooldownSlider.value);
+
+        // Wait out the cool-down phase before listening to peaks again
+        setTimeout(() => {
+            isOnCooldown = false;
+            volumeBar.style.background = 'var(--accent-color)';
+            if (isListening) {
+                statusDisplay.innerText = "Status: Listening...";
+            }
+        }, cooldownDelay);
     }
 </script>
 </body>
