@@ -27,7 +27,6 @@
             flex-direction: column;
         }
 
-        /* Top control panel for horizontal view */
         .top-bar {
             width: 100%;
             padding: 10px 30px;
@@ -66,7 +65,6 @@
             white-space: nowrap;
         }
 
-        /* Main Canvas area where dots reside */
         .canvas-area {
             flex-grow: 1;
             display: flex;
@@ -75,7 +73,6 @@
             position: relative;
         }
 
-        /* 5 Dot Grid Layout: spaced out by 1.5x the width of a dot */
         .dot-container {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -96,7 +93,6 @@
             opacity: 0;
         }
 
-        /* Full screen overlay to initialize microphone access cleanly */
         .start-overlay {
             position: fixed;
             top: 0;
@@ -132,13 +128,11 @@
 </head>
 <body>
 
-<!-- Start Screen for Mic Validation -->
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone permissions to monitor sounds.</p>
 </div>
 
-<!-- Landscape Interface -->
 <div class="top-bar">
     <div class="slider-container">
         <label>Threshold: <span id="threshold-val">50</span>%</label>
@@ -165,6 +159,7 @@
     let isOnCooldown = false;
     let sequenceState = 0; 
     let activeDotsCount = 5;
+    let isResettingDots = false; // Flag to isolate visual resets from sound logic
 
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
@@ -192,12 +187,13 @@
             overlay.style.display = 'none'; 
             detectSound();
         } catch (err) {
-            alert("Microphone access is required to parse audio claps.");
+            alert("Microphone access is required.");
             statusDisplay.innerText = "Error: No Mic Access";
         }
     };
 
     function updateStatusText() {
+        if (isResettingDots) return; // Keep the reset message clear on screen
         const main = parseInt(thresholdSlider.value);
         const sec = Math.round(main * 0.5);
         statusDisplay.innerText = `Hunting Main (${main}%) | Next Sub (${sec}%)`;
@@ -230,37 +226,38 @@
         isOnCooldown = true;
         sequenceState = 1;
         
-        // REMOVE DOT IMMEDIATELY
+        // VISUAL DOT DECREMENT ONLY
         if (activeDotsCount > 0) {
             activeDotsCount--;
             document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
         }
 
-        // Check if all dots are cleared right away
-        if (activeDotsCount === 0) {
-            statusDisplay.innerText = "All dots gone! Resetting in 1 second...";
+        // Handle visual-only reset delay if no dots remain
+        if (activeDotsCount === 0 && !isResettingDots) {
+            isResettingDots = true;
+            statusDisplay.innerText = "All dots gone! Visual reset in 1 second...";
             
             setTimeout(() => {
                 resetAllDots();
-                isOnCooldown = false;
-                sequenceState = 0; // Completely reset state machine
+                isResettingDots = false;
                 updateStatusText();
-            }, 1000); // 1 second reload timer block
+            }, 1000); 
         } else {
             statusDisplay.innerText = "Main Triggered! Dot dropped. Awaiting intermediate 1/2...";
-            applyCooldown(500); // 500ms core lockout
         }
+
+        applyCooldown(500); // 500ms core lockout still happens
     }
 
     function triggerIntermediateReaction() {
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            statusDisplay.innerText = "Intermediate 1/2 found! Awaiting 2/2...";
-            applyCooldown(300); // 300ms transition lockout
+            if (!isResettingDots) statusDisplay.innerText = "Intermediate 1/2 found! Awaiting 2/2...";
+            applyCooldown(300); 
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            statusDisplay.innerText = "Armed! Listening for next Main Trigger...";
+            if (!isResettingDots) statusDisplay.innerText = "Armed! Listening for next Main Trigger...";
             applyCooldown(300);
         }
     }
@@ -275,7 +272,7 @@
     function applyCooldown(delayDuration) {
         setTimeout(() => {
             isOnCooldown = false;
-            if (isListening && sequenceState === 0 && activeDotsCount > 0) {
+            if (isListening && sequenceState === 0) {
                 updateStatusText();
             }
         }, delayDuration);
