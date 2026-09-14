@@ -2,16 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Sequence Detector - Automated Limits</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Landscape Sequence Dot Controller</title>
     <style>
         :root {
-            --bg-color: #121212;
-            --card-color: #1e1e1e;
-            --accent-color: #00adb5;
-            --text-color: #eeeeee;
-            --flash-color: #ff2e63;
-            --step-color: #ffaa00;
+            --bg-color: #ffffff;
+            --text-color: #000000;
+        }
+
+        /* Force landscape presentation rules */
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -19,143 +20,142 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top control panel for horizontal view */
+        .top-bar {
+            width: 100%;
+            padding: 10px 30px;
+            background: rgba(0, 0, 0, 0.03);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-grow: 1;
+            max-width: 500px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: #000000;
+            cursor: pointer;
+        }
+
+        .status-txt {
+            font-size: 0.75rem;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        /* Main Canvas area where dots reside */
+        .canvas-area {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* 5 Dot Grid Layout: spaced out by 1.5x the width of a dot */
+        .dot-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            font-size: min(6vw, 6vh); /* Dynamic dot sizing based on screen bounds */
+            gap: 1.5em; /* 1.5x the width of a dot spacing */
+        }
+
+        .black-dot {
+            width: 1em;
+            height: 1em;
+            background-color: #000000;
+            border-radius: 50%;
+            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 1;
+        }
+
+        .black-dot.hidden {
+            opacity: 0;
+        }
+
+        /* Full screen overlay to initialize microphone access cleanly */
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-            transition: background-color 0.1s ease;
+            z-index: 100;
         }
 
-        body.flash { background-color: var(--flash-color); }
-
-        .container {
-            width: 100%;
-            max-width: 400px;
-            background: var(--card-color);
-            padding: 25px;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            text-align: center;
-        }
-
-        h1 { margin-top: 0; font-size: 1.5rem; }
-
-        .counter-box {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--accent-color);
-            margin: 10px 0 5px 0;
-        }
-
-        .status {
-            font-size: 0.9rem;
-            color: #aaa;
-            margin-bottom: 15px;
-            min-height: 40px;
-            line-height: 1.4;
-        }
-
-        .step-tracker {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .step-dot {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #333;
-            border: 2px solid #555;
-            transition: all 0.2s ease;
-        }
-
-        .step-dot.active {
-            background: var(--step-color);
-            border-color: var(--step-color);
-            box-shadow: 0 0 8px var(--step-color);
-        }
-
-        .control-group {
-            margin-bottom: 5px;
-            text-align: left;
-        }
-
-        label {
-            display: block;
-            font-size: 0.85rem;
-            margin-bottom: 6px;
-            color: #bbb;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            accent-color: var(--accent-color);
-        }
-
-        .value-display {
-            float: right;
-            font-weight: bold;
-            color: var(--text-color);
-        }
-
-        button {
-            background-color: var(--accent-color);
-            color: white;
+        .start-btn {
+            background: #000000;
+            color: #ffffff;
             border: none;
-            padding: 15px 30px;
-            font-size: 1rem;
+            padding: 15px 40px;
+            font-size: 1.1rem;
             font-weight: bold;
-            border-radius: 8px;
+            border-radius: 30px;
             cursor: pointer;
-            width: 100%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .hint {
             margin-top: 15px;
-            box-shadow: 0 4px 12px rgba(0, 173, 181, 0.3);
-        }
-
-        .meter-container {
-            width: 100%;
-            height: 12px;
-            background: #333;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-        #volume-bar {
-            width: 0%;
-            height: 100%;
-            background: var(--accent-color);
-            transition: width 0.05s ease;
+            font-size: 0.85rem;
+            color: #666;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Sequence Detector</h1>
-    <div class="counter-box" id="count-display">0</div>
-    
-    <div class="step-tracker">
-        <div class="step-dot" id="dot1"></div>
-        <div class="step-dot" id="dot2"></div>
-    </div>
-    
-    <div class="status" id="status-display">Status: Stopped</div>
+<!-- Start Screen for Mic Validation -->
+<div class="start-overlay" id="overlay">
+    <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
+    <p class="hint">Requires microphone permissions to monitor sounds.</p>
+</div>
 
-    <div class="meter-container">
-        <div id="volume-bar"></div>
-    </div>
-
-    <div class="control-group">
-        <label>Main Trigger Threshold: <span class="value-display" id="threshold-val">50</span></label>
+<!-- Landscape Interface -->
+<div class="top-bar">
+    <div class="slider-container">
+        <label>Threshold: <span id="threshold-val">50</span>%</label>
         <input type="range" id="threshold-slider" min="10" max="100" value="50">
     </div>
+    <div class="status-txt" id="status-display">Status: Ready</div>
+</div>
 
-    <button id="start-btn">Allow Mic & Start</button>
+<div class="canvas-area">
+    <div class="dot-container">
+        <div class="black-dot" id="dot-0"></div>
+        <div class="black-dot" id="dot-1"></div>
+        <div class="black-dot" id="dot-2"></div>
+        <div class="black-dot" id="dot-3"></div>
+        <div class="black-dot" id="dot-4"></div>
+    </div>
 </div>
 
 <script>
@@ -164,28 +164,22 @@
     let dataArray = null;
     let isListening = false;
     let isOnCooldown = false;
-    let count = 0;
     let sequenceState = 0; 
+    let activeDotsCount = 5;
 
+    const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
     const statusDisplay = document.getElementById('status-display');
-    const countDisplay = document.getElementById('count-display');
-    const volumeBar = document.getElementById('volume-bar');
-    const dot1 = document.getElementById('dot1');
-    const dot2 = document.getElementById('dot2');
-    
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
 
+    // Update Threshold Label dynamically
     thresholdSlider.oninput = () => {
         thresholdVal.innerText = thresholdSlider.value;
-        if (isListening && sequenceState === 0) {
-            updateStatusText();
-        }
+        if (isListening && sequenceState === 0) updateStatusText();
     };
 
     startBtn.onclick = async () => {
-        if (isListening) return;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -194,38 +188,34 @@
             analyser.fftSize = 256; 
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             source.connect(analyser);
+            
             isListening = true;
             updateStatusText();
-            startBtn.style.display = 'none';
+            overlay.style.display = 'none'; // Clear overlay out
             detectSound();
         } catch (err) {
-            alert("Microphone access denied.");
-            statusDisplay.innerText = "Status: Error";
+            alert("Microphone access is required to parse audio claps.");
+            statusDisplay.innerText = "Error: No Mic Access";
         }
     };
 
     function updateStatusText() {
-        const mainThreshold = parseInt(thresholdSlider.value);
-        const secondaryThreshold = Math.round(mainThreshold * 0.5);
-        statusDisplay.innerHTML = `Listening for Main Trigger...<br><small style="color:#888;">(Secondary Target: ${secondaryThreshold})</small>`;
+        const main = parseInt(thresholdSlider.value);
+        const sec = Math.round(main * 0.5);
+        statusDisplay.innerText = `Hunting Main (${main}%) | Next Sub (${sec}%)`;
     }
 
     function detectSound() {
         if (!isListening) return;
         analyser.getByteFrequencyData(dataArray);
+        
         let maxVolume = 0;
         for (let i = 0; i < dataArray.length; i++) {
             if (dataArray[i] > maxVolume) maxVolume = dataArray[i];
         }
         const currentVolume = Math.round((maxVolume / 255) * 100);
-        
-        if (!isOnCooldown) {
-            volumeBar.style.width = currentVolume + '%';
-            volumeBar.style.background = (sequenceState === 0) ? 'var(--accent-color)' : 'var(--step-color)';
-        }
 
         const mainThreshold = parseInt(thresholdSlider.value);
-        // Automatically scales to half of the main setting
         const secondaryThreshold = Math.round(mainThreshold * 0.5);
 
         if (!isOnCooldown) {
@@ -240,41 +230,56 @@
 
     function triggerMainReaction() {
         isOnCooldown = true;
-        count++;
-        countDisplay.innerText = count;
         sequenceState = 1;
-        statusDisplay.innerText = "Main triggered! Need 2 secondary sounds.";
-        document.body.classList.add('flash');
-        volumeBar.style.width = '100%';
-        volumeBar.style.background = 'var(--flash-color)';
-        setTimeout(() => document.body.classList.remove('flash'), 150);
-        
-        applyCooldown(500); // 500ms hardcoded for main
+        statusDisplay.innerText = "Main Triggered! Awaiting intermediate 1/2...";
+        applyCooldown(500); // 500ms core lockout
     }
 
     function triggerIntermediateReaction() {
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            dot1.classList.add('active');
-            statusDisplay.innerText = "Sound 1/2 detected. Need 1 more.";
+            statusDisplay.innerText = "Intermediate 1/2 found! Awaiting 2/2...";
+            applyCooldown(300); // 300ms transition lockout
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            dot1.classList.remove('active');
-            dot2.classList.remove('active');
-            updateStatusText();
+            processSequenceCompletion();
         }
-        
-        applyCooldown(300); // 300ms hardcoded for intermediate sounds
+    }
+
+    function processSequenceCompletion() {
+        if (activeDotsCount > 0) {
+            activeDotsCount--;
+            // Remove the rightmost remaining dot item (Indices 4 down to 0)
+            document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
+        }
+
+        // Check if all dots are cleared out completely
+        if (activeDotsCount === 0) {
+            statusDisplay.innerText = "All dots gone! Resetting in 1 second...";
+            isOnCooldown = true;
+            
+            setTimeout(() => {
+                resetAllDots();
+                isOnCooldown = false;
+                updateStatusText();
+            }, 1000); // 1 second reload timer block
+        } else {
+            applyCooldown(300);
+        }
+    }
+
+    function resetAllDots() {
+        activeDotsCount = 5;
+        for (let i = 0; i < 5; i++) {
+            document.getElementById(`dot-${i}`).classList.remove('hidden');
+        }
     }
 
     function applyCooldown(delayDuration) {
         setTimeout(() => {
             isOnCooldown = false;
-            if (sequenceState === 2) {
-                dot2.classList.add('active');
-            }
-            if (isListening && !isOnCooldown && sequenceState === 0) {
+            if (isListening && sequenceState === 0 && activeDotsCount > 0) {
                 updateStatusText();
             }
         }, delayDuration);
