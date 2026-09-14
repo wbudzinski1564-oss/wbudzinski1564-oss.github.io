@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Landscape Sequence Dot Controller - Single Slider</title>
+    <title>Landscape Sequence Dot Controller - Sizing</title>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -29,7 +29,7 @@
             padding-right: env(safe-area-inset-right, 0px);
         }
 
-        /* Top control panel containing the single wide volume slider */
+        /* Top control panel containing the stacked configuration sliders */
         .top-bar {
             width: 100%;
             padding: 12px 20px;
@@ -61,7 +61,7 @@
             font-weight: 600;
             white-space: nowrap;
             color: #333;
-            min-width: 130px;
+            min-width: 140px;
         }
 
         input[type="range"] {
@@ -81,12 +81,12 @@
             padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
-        /* 5 Dot Grid Layout: spaced out by 1.5x the width of a dot */
+        /* 5 Dot Grid Layout: Base font-size controls size, gap is locked to 1em (1x size) */
         .dot-container {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            font-size: min(6vw, 6vh); 
-            gap: 1.5em; 
+            font-size: 5vh; /* Initial fallback, overridden by script */
+            gap: 1em; /* Permanently locked to 1x the size of the target */
         }
 
         .black-dot {
@@ -152,7 +152,7 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
-    <div class="iteration-badge">Iteration: 11</div>
+    <div class="iteration-badge">Iteration: 13</div>
 </div>
 
 <!-- Landscape Interface Deck -->
@@ -162,11 +162,15 @@
             <label>Main Vol: <span id="threshold-val">50</span>%</label>
             <input type="range" id="threshold-slider" min="10" max="100" value="50">
         </div>
+        <div class="slider-container">
+            <label>Target Size: <span id="size-val">5.0</span>vh</label>
+            <input type="range" id="size-slider" min="2.0" max="12.0" step="0.5" value="5.0">
+        </div>
     </div>
 </div>
 
 <div class="canvas-area">
-    <div class="dot-container">
+    <div class="dot-container" id="dot-grid">
         <div class="black-dot" id="dot-0"></div>
         <div class="black-dot" id="dot-1"></div>
         <div class="black-dot" id="dot-2"></div>
@@ -192,9 +196,21 @@
     const startBtn = document.getElementById('start-btn');
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
+    const sizeSlider = document.getElementById('size-slider');
+    const sizeVal = document.getElementById('size-val');
+    const dotGrid = document.getElementById('dot-grid');
 
-    // Sync Slider Input Live
+    // Initialize layout sizing rules
+    dotGrid.style.fontSize = sizeSlider.value + 'vh';
+
+    // Sync Slider Inputs Live
     thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; };
+    
+    sizeSlider.oninput = () => { 
+        sizeVal.innerText = sizeSlider.value;
+        // Updating font-size dynamically alters the em target scaling and the locked 1em gap in lockstep
+        dotGrid.style.fontSize = sizeSlider.value + 'vh';
+    };
 
     startBtn.onclick = async () => {
         try {
