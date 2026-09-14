@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Landscape Sequence Dot Controller</title>
+    <title>Landscape Sequence Dot Controller with Filter</title>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -27,34 +27,43 @@
             flex-direction: column;
         }
 
+        /* Top control panel containing all 3 sliders */
         .top-bar {
             width: 100%;
-            padding: 10px 30px;
-            background: rgba(0, 0, 0, 0.03);
+            padding: 8px 20px;
+            background: rgba(0, 0, 0, 0.04);
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             display: flex;
+            flex-direction: row;
             align-items: center;
             justify-content: space-between;
-            gap: 20px;
+            gap: 15px;
             z-index: 10;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            flex-grow: 1;
         }
 
         .slider-container {
             display: flex;
             align-items: center;
-            gap: 15px;
-            flex-grow: 1;
-            max-width: 500px;
+            gap: 8px;
+            flex: 1;
         }
 
         label {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 600;
             white-space: nowrap;
+            color: #333;
         }
 
         input[type="range"] {
-            flex-grow: 1;
+            width: 100%;
             accent-color: #000000;
             cursor: pointer;
         }
@@ -63,8 +72,11 @@
             font-size: 0.75rem;
             color: #666;
             white-space: nowrap;
+            min-width: 180px;
+            text-align: right;
         }
 
+        /* Main Canvas area where dots reside */
         .canvas-area {
             flex-grow: 1;
             display: flex;
@@ -73,6 +85,7 @@
             position: relative;
         }
 
+        /* 5 Dot Grid Layout: spaced out by 1.5x the width of a dot */
         .dot-container {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -85,7 +98,7 @@
             height: 1em;
             background-color: #000000;
             border-radius: 50%;
-            transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 1;
         }
 
@@ -93,6 +106,7 @@
             opacity: 0;
         }
 
+        /* Initial Setup Overlay */
         .start-overlay {
             position: fixed;
             top: 0;
@@ -128,15 +142,27 @@
 </head>
 <body>
 
+<!-- Start Screen for Mic Validation -->
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
-    <p class="hint">Requires microphone permissions to monitor sounds.</p>
+    <p class="hint">Requires microphone access for advanced noise detection.</p>
 </div>
 
+<!-- Landscape Interface Slider Deck -->
 <div class="top-bar">
-    <div class="slider-container">
-        <label>Threshold: <span id="threshold-val">50</span>%</label>
-        <input type="range" id="threshold-slider" min="10" max="100" value="50">
+    <div class="slider-group">
+        <div class="slider-container">
+            <label>Main Vol: <span id="threshold-val">50</span>%</label>
+            <input type="range" id="threshold-slider" min="5" max="100" value="50">
+        </div>
+        <div class="slider-container">
+            <label>Sec Vol: <span id="secondary-val">30</span>%</label>
+            <input type="range" id="secondary-slider" min="5" max="100" value="30">
+        </div>
+        <div class="slider-container">
+            <label>Freq Cutoff: <span id="freq-val">1000</span>Hz</label>
+            <input type="range" id="freq-slider" min="100" max="4000" step="50" value="1000">
+        </div>
     </div>
     <div class="status-txt" id="status-display">Status: Ready</div>
 </div>
@@ -153,23 +179,36 @@
 
 <script>
     let audioContext = null;
-    let analyser = null;
-    let dataArray = null;
+    let mainAnalyser = null;
+    let rawAnalyser = null;
+    let biquadFilter = null;
+    let dataArrayMain = null;
+    let dataArraySec = null;
     let isListening = false;
     let isOnCooldown = false;
     let sequenceState = 0; 
     let activeDotsCount = 5;
-    let isResettingDots = false; // Flag to isolate visual resets from sound logic
+    let isResettingDots = false;
 
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
     const statusDisplay = document.getElementById('status-display');
+    
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
+    const secondarySlider = document.getElementById('secondary-slider');
+    const secondaryVal = document.getElementById('secondary-val');
+    const freqSlider = document.getElementById('freq-slider');
+    const freqVal = document.getElementById('freq-val');
 
-    thresholdSlider.oninput = () => {
-        thresholdVal.innerText = thresholdSlider.value;
-        if (isListening && sequenceState === 0) updateStatusText();
+    // Sync Slider Inputs Live
+    thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; updateStatusText(); };
+    secondarySlider.oninput = () => { secondaryVal.innerText = secondarySlider.value; updateStatusText(); };
+    freqSlider.oninput = () => {
+        freqVal.innerText = freqSlider.value;
+        if (biquadFilter) {
+            biquadFilter.frequency.setValueAtTime(parseFloat(freqSlider.value), audioContext.currentTime);
+        }
     };
 
     startBtn.onclick = async () => {
@@ -177,10 +216,26 @@
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioContext.createMediaStreamSource(stream);
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256; 
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            source.connect(analyser);
+            
+            // 1. Setup High-Pass Audio Filter for the Main Sound routing
+            biquadFilter = audioContext.createBiquadFilter();
+            biquadFilter.type = "highpass";
+            biquadFilter.frequency.setValueAtTime(parseFloat(freqSlider.value), audioContext.currentTime);
+            
+            // 2. Setup Analyser Node for Filtered Audio (Main Sound)
+            mainAnalyser = audioContext.createAnalyser();
+            mainAnalyser.fftSize = 256;
+            dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
+            
+            // 3. Setup Analyser Node for Raw Audio (Secondary Sounds skip the filter)
+            rawAnalyser = audioContext.createAnalyser();
+            rawAnalyser.fftSize = 256;
+            dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
+            
+            // Connect pathways
+            source.connect(biquadFilter);
+            biquadFilter.connect(mainAnalyser); // Filtered Path
+            source.connect(rawAnalyser);        // Raw Audio Path
             
             isListening = true;
             updateStatusText();
@@ -193,30 +248,41 @@
     };
 
     function updateStatusText() {
-        if (isResettingDots) return; // Keep the reset message clear on screen
-        const main = parseInt(thresholdSlider.value);
-        const sec = Math.round(main * 0.5);
-        statusDisplay.innerText = `Hunting Main (${main}%) | Next Sub (${sec}%)`;
+        if (isResettingDots) return;
+        if (sequenceState === 0) {
+            statusDisplay.innerText = `Status: Waiting for Main (> ${thresholdSlider.value}%)`;
+        } else {
+            statusDisplay.innerText = `Status: Need Sec Spike (${sequenceState}/2) (> ${secondarySlider.value}%)`;
+        }
+    }
+
+    function getMaxVolume(analyserNode, bufferArray) {
+        analyserNode.getByteFrequencyData(bufferArray);
+        let maxVolume = 0;
+        for (let i = 0; i < bufferArray.length; i++) {
+            if (bufferArray[i] > maxVolume) maxVolume = bufferArray[i];
+        }
+        return Math.round((maxVolume / 255) * 100);
     }
 
     function detectSound() {
         if (!isListening) return;
-        analyser.getByteFrequencyData(dataArray);
-        
-        let maxVolume = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            if (dataArray[i] > maxVolume) maxVolume = dataArray[i];
-        }
-        const currentVolume = Math.round((maxVolume / 255) * 100);
-
-        const mainThreshold = parseInt(thresholdSlider.value);
-        const secondaryThreshold = Math.round(mainThreshold * 0.5);
 
         if (!isOnCooldown) {
-            if (sequenceState === 0 && currentVolume >= mainThreshold) {
-                triggerMainReaction();
-            } else if (sequenceState > 0 && currentVolume >= secondaryThreshold) {
-                triggerIntermediateReaction();
+            if (sequenceState === 0) {
+                // Read from FILTERED audio pathway for Main Trigger
+                const filteredVolume = getMaxVolume(mainAnalyser, dataArrayMain);
+                const mainThreshold = parseInt(thresholdSlider.value);
+                if (filteredVolume >= mainThreshold) {
+                    triggerMainReaction();
+                }
+            } else {
+                // Read from RAW audio pathway for intermediate steps
+                const rawVolume = getMaxVolume(rawAnalyser, dataArraySec);
+                const secondaryThreshold = parseInt(secondarySlider.value);
+                if (rawVolume >= secondaryThreshold) {
+                    triggerIntermediateReaction();
+                }
             }
         }
         requestAnimationFrame(detectSound);
@@ -226,39 +292,38 @@
         isOnCooldown = true;
         sequenceState = 1;
         
-        // VISUAL DOT DECREMENT ONLY
+        // Remove dot immediately when main trigger occurs
         if (activeDotsCount > 0) {
             activeDotsCount--;
             document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
         }
 
-        // Handle visual-only reset delay if no dots remain
         if (activeDotsCount === 0 && !isResettingDots) {
             isResettingDots = true;
-            statusDisplay.innerText = "All dots gone! Visual reset in 1 second...";
-            
+            statusDisplay.innerText = "All dots gone! Resetting in 1s...";
+
             setTimeout(() => {
                 resetAllDots();
                 isResettingDots = false;
                 updateStatusText();
-            }, 1000); 
+            }, 1000);
         } else {
-            statusDisplay.innerText = "Main Triggered! Dot dropped. Awaiting intermediate 1/2...";
+            updateStatusText();
         }
 
-        applyCooldown(500); // 500ms core lockout still happens
+        applyCooldown(500); // 500ms main lockout
     }
 
     function triggerIntermediateReaction() {
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            if (!isResettingDots) statusDisplay.innerText = "Intermediate 1/2 found! Awaiting 2/2...";
-            applyCooldown(300); 
+            updateStatusText();
+            applyCooldown(300); // 300ms intermediate lockout
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            if (!isResettingDots) statusDisplay.innerText = "Armed! Listening for next Main Trigger...";
-            applyCooldown(300);
+            updateStatusText();
+            applyCooldown(300); // 300ms intermediate lockout
         }
     }
 
@@ -272,9 +337,7 @@
     function applyCooldown(delayDuration) {
         setTimeout(() => {
             isOnCooldown = false;
-            if (isListening && sequenceState === 0) {
-                updateStatusText();
-            }
+            updateStatusText();
         }, delayDuration);
     }
 </script>
