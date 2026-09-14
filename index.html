@@ -126,12 +126,23 @@
             border-radius: 30px;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
         }
         
         .hint {
-            margin-top: 15px;
+            margin-top: 5px;
             font-size: 0.85rem;
             color: #666;
+        }
+
+        .iteration-badge {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #999;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 4px 12px;
+            border-radius: 12px;
         }
     </style>
 </head>
@@ -141,6 +152,7 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
+    <div class="iteration-badge">Iteration: 11</div>
 </div>
 
 <!-- Landscape Interface Deck -->
@@ -165,8 +177,11 @@
 
 <script>
     let audioContext = null;
-    let analyser = null;
-    let dataArray = null;
+    let mainAnalyser = null;
+    let rawAnalyser = null;
+    let biquadFilter = null;
+    let dataArrayMain = null;
+    let dataArraySec = null;
     let isListening = false;
     let isOnCooldown = false;
     let sequenceState = 0; 
@@ -180,15 +195,31 @@
 
     // Sync Slider Input Live
     thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; };
+
     startBtn.onclick = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioContext.createMediaStreamSource(stream);
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 256; 
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            source.connect(analyser);
+            
+            // 1. Setup Filtered Pathway (Main Trigger Only) with 5000Hz High Pass
+            biquadFilter = audioContext.createBiquadFilter();
+            biquadFilter.type = "highpass";
+            biquadFilter.frequency.setValueAtTime(5000, audioContext.currentTime);
+            
+            mainAnalyser = audioContext.createAnalyser();
+            mainAnalyser.fftSize = 256; 
+            dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
+            
+            // 2. Setup Unfiltered Pathway (Secondary Triggers Only)
+            rawAnalyser = audioContext.createAnalyser();
+            rawAnalyser.fftSize = 256;
+            dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
+            
+            // Connect separate routing paths
+            source.connect(biquadFilter);
+            biquadFilter.connect(mainAnalyser); // Filtered stream
+            source.connect(rawAnalyser);        // Raw stream
             
             isListening = true;
             overlay.style.display = 'none'; 
@@ -210,22 +241,22 @@
     function detectSound() {
         if (!isListening) return;
 
-        analyser.getByteFrequencyData(dataArray);
-        let maxVolume = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            if (dataArray[i] > maxVolume) maxVolume = dataArray[i];
-        }
-        const currentVolume = Math.round((maxVolume / 255) * 100);
-
         const mainThreshold = parseInt(thresholdSlider.value);
-        // Automatically scales intermediate targets to half of the main value
         const secondaryThreshold = Math.round(mainThreshold * 0.5);
 
         if (!isOnCooldown) {
-            if (sequenceState === 0 && currentVolume >= mainThreshold) {
-                triggerMainReaction();
-            } else if (sequenceState > 0 && currentVolume >= secondaryThreshold) {
-                triggerIntermediateReaction();
+            if (sequenceState === 0) {
+                // Main sound analyzes the 5000Hz filtered node
+                const currentVolume = getMaxVolume(mainAnalyser, dataArrayMain);
+                if (currentVolume >= mainThreshold) {
+                    triggerMainReaction();
+                }
+            } else {
+                // Secondary sounds analyze the raw unfiltered node
+                const currentVolume = getMaxVolume(rawAnalyser, dataArraySec);
+                if (currentVolume >= secondaryThreshold) {
+                    triggerIntermediateReaction();
+                }
             }
         }
         requestAnimationFrame(detectSound);
