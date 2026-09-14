@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Landscape Sequence Dot Controller - Sizing</title>
+    <title>Landscape Sequence Dot Controller - Sizing Stabalized</title>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -152,7 +152,7 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
-    <div class="iteration-badge">Iteration: 13</div>
+    <div class="iteration-badge">Iteration: 14</div>
 </div>
 
 <!-- Landscape Interface Deck -->
@@ -160,7 +160,7 @@
     <div class="slider-group">
         <div class="slider-container">
             <label>Main Vol: <span id="threshold-val">50</span>%</label>
-            <input type="range" id="threshold-slider" min="10" max="100" value="50">
+            <input type="range" id="threshold-slider" min="5" max="100" value="50">
         </div>
         <div class="slider-container">
             <label>Target Size: <span id="size-val">5.0</span>vh</label>
@@ -208,10 +208,8 @@
     
     sizeSlider.oninput = () => { 
         sizeVal.innerText = sizeSlider.value;
-        // Updating font-size dynamically alters the em target scaling and the locked 1em gap in lockstep
         dotGrid.style.fontSize = sizeSlider.value + 'vh';
     };
-
     startBtn.onclick = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -224,12 +222,14 @@
             biquadFilter.frequency.setValueAtTime(5000, audioContext.currentTime);
             
             mainAnalyser = audioContext.createAnalyser();
-            mainAnalyser.fftSize = 256; 
+            mainAnalyser.fftSize = 512; // Double resolution footprint to handle energy evaluations safely
+            mainAnalyser.smoothingTimeConstant = 0.2;
             dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
             
             // 2. Setup Unfiltered Pathway (Secondary Triggers Only)
             rawAnalyser = audioContext.createAnalyser();
-            rawAnalyser.fftSize = 256;
+            rawAnalyser.fftSize = 512;
+            rawAnalyser.smoothingTimeConstant = 0.2;
             dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
             
             // Connect separate routing paths
@@ -245,13 +245,24 @@
         }
     };
 
-    function getMaxVolume(analyserNode, bufferArray) {
+    // Stabilized alternative calculation using Root Mean Square (RMS) energy densities
+    function getAudioEnergy(analyserNode, bufferArray) {
         analyserNode.getByteFrequencyData(bufferArray);
-        let maxVolume = 0;
+        let totalSquare = 0;
+        let activeBins = 0;
+
         for (let i = 0; i < bufferArray.length; i++) {
-            if (bufferArray[i] > maxVolume) maxVolume = bufferArray[i];
+            // Cutoff threshold line to drop ambient room hiss completely
+            if (bufferArray[i] > 10) { 
+                totalSquare += bufferArray[i] * bufferArray[i];
+                activeBins++;
+            }
         }
-        return Math.round((maxVolume / 255) * 100);
+        
+        if (activeBins === 0) return 0;
+        
+        const rms = Math.sqrt(totalSquare / activeBins);
+        return Math.round((rms / 255) * 100);
     }
 
     function detectSound() {
@@ -262,15 +273,15 @@
 
         if (!isOnCooldown) {
             if (sequenceState === 0) {
-                // Main sound analyzes the 5000Hz filtered node
-                const currentVolume = getMaxVolume(mainAnalyser, dataArrayMain);
-                if (currentVolume >= mainThreshold) {
+                // Evaluated via RMS calculations across the 5000Hz filter lane
+                const filteredEnergy = getAudioEnergy(mainAnalyser, dataArrayMain);
+                if (filteredEnergy >= mainThreshold && filteredEnergy > 0) {
                     triggerMainReaction();
                 }
             } else {
-                // Secondary sounds analyze the raw unfiltered node
-                const currentVolume = getMaxVolume(rawAnalyser, dataArraySec);
-                if (currentVolume >= secondaryThreshold) {
+                // Evaluated via RMS calculations across raw unfiltered line
+                const rawEnergy = getAudioEnergy(rawAnalyser, dataArraySec);
+                if (rawEnergy >= secondaryThreshold && rawEnergy > 0) {
                     triggerIntermediateReaction();
                 }
             }
@@ -282,7 +293,6 @@
         isOnCooldown = true;
         sequenceState = 1;
         
-        // Remove dot instantly when main trigger occurs
         if (activeDotsCount > 0) {
             activeDotsCount--;
             document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
@@ -294,20 +304,20 @@
             setTimeout(() => {
                 resetAllDots();
                 isResettingDots = false;
-            }, 1000); // 1-second refresh delay
+            }, 1000);
         }
 
-        applyCooldown(500); // 500ms main lockout
+        applyCooldown(500); 
     }
 
     function triggerIntermediateReaction() {
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            applyCooldown(300); // 300ms intermediate lockout
+            applyCooldown(300); 
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            applyCooldown(300); // 300ms intermediate lockout
+            applyCooldown(300); 
         }
     }
 
