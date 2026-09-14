@@ -152,7 +152,7 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
-    <div class="iteration-badge">Iteration: 17</div>
+    <div class="iteration-badge">Iteration: 18</div>
 </div>
 
 <!-- Landscape Interface Deck -->
@@ -163,8 +163,9 @@
             <input type="range" id="size-slider" min="2.0" max="15.0" step="0.5" value="5.0">
         </div>
         <div class="slider-container">
-            <label>Threshold Margin: <span id="margin-val">90</span>%</label>
-            <input type="range" id="margin-slider" min="50" max="100" step="1" value="90">
+            <label>Threshold Margin: <span id="margin-val">80</span>%</label>
+            <!-- Default changed to 80 -->
+            <input type="range" id="margin-slider" min="50" max="100" step="1" value="80">
         </div>
         <div class="slider-container">
             <label style="color: #666;">Active Target (Rolling Floor): <span id="adaptive-threshold-val">Auto Tuning...</span></label>
@@ -185,7 +186,7 @@
 <script>
     let audioContext = null;
     let mainAnalyser = null;
-    let rawAnalyser = null;
+    let secAnalyser = null; // Renamed for filter flow clarity
     let biquadFilter = null;
     let dataArrayMain = null;
     let dataArraySec = null;
@@ -223,31 +224,36 @@
             recalculateAdaptiveThreshold();
         }
     };
+
     startBtn.onclick = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioContext.createMediaStreamSource(stream);
             
-            // 1. Setup Filtered Pathway (Main Trigger Only) with 5000Hz High Pass
+            // Setup shared 5000Hz High Pass Filter node for all logic paths
             biquadFilter = audioContext.createBiquadFilter();
             biquadFilter.type = "highpass";
             biquadFilter.frequency.setValueAtTime(5000, audioContext.currentTime);
             
+            // Setup Analyser Node for Filtered Main Trigger Audio
             mainAnalyser = audioContext.createAnalyser();
             mainAnalyser.fftSize = 512; 
             mainAnalyser.smoothingTimeConstant = 0.2;
             dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
             
-            // 2. Setup Unfiltered Pathway (Secondary Triggers Only)
-            rawAnalyser = audioContext.createAnalyser();
-            rawAnalyser.fftSize = 512;
-            rawAnalyser.smoothingTimeConstant = 0.2;
-            dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
+            // Setup Analyser Node for Filtered Secondary Trigger Audio
+            secAnalyser = audioContext.createAnalyser();
+            secAnalyser.fftSize = 512;
+            secAnalyser.smoothingTimeConstant = 0.2;
+            dataArraySec = new Uint8Array(secAnalyser.frequencyBinCount);
             
+            // Route the microphone source through the shared 5000Hz filter first
             source.connect(biquadFilter);
+            
+            // Split the high-pass filtered audio to both tracking analysers
             biquadFilter.connect(mainAnalyser);
-            source.connect(rawAnalyser);
+            biquadFilter.connect(secAnalyser);
             
             isListening = true;
             overlay.style.display = 'none'; 
@@ -311,7 +317,8 @@
                     triggerMainReaction();
                 }
             } else {
-                const rawEnergy = getAudioEnergy(rawAnalyser, dataArraySec);
+                // Secondary sounds now analyze the filtered secondary node
+                const rawEnergy = getAudioEnergy(secAnalyser, dataArraySec);
                 if (rawEnergy >= secondaryThreshold && rawEnergy > 0) {
                     triggerIntermediateReaction();
                 }
