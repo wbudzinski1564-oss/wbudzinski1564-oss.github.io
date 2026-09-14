@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Landscape Sequence Dot Controller - Sizing Stabalized</title>
+    <title>Landscape Sequence Dot Controller - Dynamic Average Calibration</title>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -29,7 +29,7 @@
             padding-right: env(safe-area-inset-right, 0px);
         }
 
-        /* Top control panel containing the stacked configuration sliders */
+        /* Top control panel containing configuration sliders */
         .top-bar {
             width: 100%;
             padding: 12px 20px;
@@ -61,7 +61,7 @@
             font-weight: 600;
             white-space: nowrap;
             color: #333;
-            min-width: 140px;
+            min-width: 160px; /* Slightly widened to align text cleanly with new slider text */
         }
 
         input[type="range"] {
@@ -152,19 +152,22 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
-    <div class="iteration-badge">Iteration: 14</div>
+    <div class="iteration-badge">Iteration: 17</div>
 </div>
 
 <!-- Landscape Interface Deck -->
 <div class="top-bar">
     <div class="slider-group">
         <div class="slider-container">
-            <label>Main Vol: <span id="threshold-val">50</span>%</label>
-            <input type="range" id="threshold-slider" min="5" max="100" value="50">
+            <label>Target Size: <span id="size-val">5.0</span>vh</label>
+            <input type="range" id="size-slider" min="2.0" max="15.0" step="0.5" value="5.0">
         </div>
         <div class="slider-container">
-            <label>Target Size: <span id="size-val">5.0</span>vh</label>
-            <input type="range" id="size-slider" min="2.0" max="12.0" step="0.5" value="5.0">
+            <label>Threshold Margin: <span id="margin-val">90</span>%</label>
+            <input type="range" id="margin-slider" min="50" max="100" step="1" value="90">
+        </div>
+        <div class="slider-container">
+            <label style="color: #666;">Active Target (Rolling Floor): <span id="adaptive-threshold-val">Auto Tuning...</span></label>
         </div>
     </div>
 </div>
@@ -192,23 +195,33 @@
     let activeDotsCount = 5;
     let isResettingDots = false;
 
+    // Rolling Average Calibration Framework
+    let currentMainThreshold = 30; // Soft 30% baseline to capture the initial calibration noise
+    let triggerHistory = [];       // Holds all historical peak energy levels to calculate rolling average
+
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
-    const thresholdSlider = document.getElementById('threshold-slider');
-    const thresholdVal = document.getElementById('threshold-val');
     const sizeSlider = document.getElementById('size-slider');
     const sizeVal = document.getElementById('size-val');
+    const marginSlider = document.getElementById('margin-slider');
+    const marginVal = document.getElementById('margin-val');
+    const adaptiveThresholdVal = document.getElementById('adaptive-threshold-val');
     const dotGrid = document.getElementById('dot-grid');
 
     // Initialize layout sizing rules
     dotGrid.style.fontSize = sizeSlider.value + 'vh';
-
-    // Sync Slider Inputs Live
-    thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; };
     
     sizeSlider.oninput = () => { 
         sizeVal.innerText = sizeSlider.value;
         dotGrid.style.fontSize = sizeSlider.value + 'vh';
+    };
+
+    // Recalculates threshold target live if user moves percentage slider mid-session
+    marginSlider.oninput = () => {
+        marginVal.innerText = marginSlider.value;
+        if (triggerHistory.length > 0) {
+            recalculateAdaptiveThreshold();
+        }
     };
     startBtn.onclick = async () => {
         try {
@@ -222,7 +235,7 @@
             biquadFilter.frequency.setValueAtTime(5000, audioContext.currentTime);
             
             mainAnalyser = audioContext.createAnalyser();
-            mainAnalyser.fftSize = 512; // Double resolution footprint to handle energy evaluations safely
+            mainAnalyser.fftSize = 512; 
             mainAnalyser.smoothingTimeConstant = 0.2;
             dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
             
@@ -232,10 +245,9 @@
             rawAnalyser.smoothingTimeConstant = 0.2;
             dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
             
-            // Connect separate routing paths
             source.connect(biquadFilter);
-            biquadFilter.connect(mainAnalyser); // Filtered stream
-            source.connect(rawAnalyser);        // Raw stream
+            biquadFilter.connect(mainAnalyser);
+            source.connect(rawAnalyser);
             
             isListening = true;
             overlay.style.display = 'none'; 
@@ -245,41 +257,60 @@
         }
     };
 
-    // Stabilized alternative calculation using Root Mean Square (RMS) energy densities
     function getAudioEnergy(analyserNode, bufferArray) {
         analyserNode.getByteFrequencyData(bufferArray);
         let totalSquare = 0;
         let activeBins = 0;
 
         for (let i = 0; i < bufferArray.length; i++) {
-            // Cutoff threshold line to drop ambient room hiss completely
             if (bufferArray[i] > 10) { 
                 totalSquare += bufferArray[i] * bufferArray[i];
                 activeBins++;
             }
         }
-        
         if (activeBins === 0) return 0;
         
         const rms = Math.sqrt(totalSquare / activeBins);
         return Math.round((rms / 255) * 100);
     }
 
+    function recalculateAdaptiveThreshold() {
+        let sum = 0;
+        for (let i = 0; i < triggerHistory.length; i++) {
+            sum += triggerHistory[i];
+        }
+        const dynamicAverage = sum / triggerHistory.length;
+        
+        // Calculate scaling target based on the current margin slider percentage value
+        const userMarginPercentage = parseInt(marginSlider.value) / 100;
+        const calculatedTarget = Math.round(dynamicAverage * userMarginPercentage);
+        
+        // Protect against low background floor mapping (minimum threshold base floor of 25)
+        currentMainThreshold = Math.max(25, calculatedTarget);
+        
+        // Update dashboard status readings
+        adaptiveThresholdVal.innerText = currentMainThreshold + "% (" + triggerHistory.length + " sounds averaged)";
+    }
+
     function detectSound() {
         if (!isListening) return;
 
-        const mainThreshold = parseInt(thresholdSlider.value);
-        const secondaryThreshold = Math.round(mainThreshold * 0.5);
+        const secondaryThreshold = Math.max(15, Math.round(currentMainThreshold * 0.5));
 
         if (!isOnCooldown) {
             if (sequenceState === 0) {
-                // Evaluated via RMS calculations across the 5000Hz filter lane
                 const filteredEnergy = getAudioEnergy(mainAnalyser, dataArrayMain);
-                if (filteredEnergy >= mainThreshold && filteredEnergy > 0) {
+                
+                if (filteredEnergy >= currentMainThreshold && filteredEnergy > 0) {
+                    // Push peak configuration values straight to baseline logs
+                    triggerHistory.push(filteredEnergy);
+                    
+                    // Run the rolling evaluation loop using slider values
+                    recalculateAdaptiveThreshold();
+                    
                     triggerMainReaction();
                 }
             } else {
-                // Evaluated via RMS calculations across raw unfiltered line
                 const rawEnergy = getAudioEnergy(rawAnalyser, dataArraySec);
                 if (rawEnergy >= secondaryThreshold && rawEnergy > 0) {
                     triggerIntermediateReaction();
