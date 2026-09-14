@@ -10,7 +10,6 @@
             --text-color: #000000;
         }
 
-        /* Force landscape presentation rules */
         * {
             box-sizing: border-box;
         }
@@ -80,8 +79,8 @@
         .dot-container {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            font-size: min(6vw, 6vh); /* Dynamic dot sizing based on screen bounds */
-            gap: 1.5em; /* 1.5x the width of a dot spacing */
+            font-size: min(6vw, 6vh); 
+            gap: 1.5em; 
         }
 
         .black-dot {
@@ -173,7 +172,6 @@
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
 
-    // Update Threshold Label dynamically
     thresholdSlider.oninput = () => {
         thresholdVal.innerText = thresholdSlider.value;
         if (isListening && sequenceState === 0) updateStatusText();
@@ -191,7 +189,7 @@
             
             isListening = true;
             updateStatusText();
-            overlay.style.display = 'none'; // Clear overlay out
+            overlay.style.display = 'none'; 
             detectSound();
         } catch (err) {
             alert("Microphone access is required to parse audio claps.");
@@ -231,8 +229,27 @@
     function triggerMainReaction() {
         isOnCooldown = true;
         sequenceState = 1;
-        statusDisplay.innerText = "Main Triggered! Awaiting intermediate 1/2...";
-        applyCooldown(500); // 500ms core lockout
+        
+        // REMOVE DOT IMMEDIATELY
+        if (activeDotsCount > 0) {
+            activeDotsCount--;
+            document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
+        }
+
+        // Check if all dots are cleared right away
+        if (activeDotsCount === 0) {
+            statusDisplay.innerText = "All dots gone! Resetting in 1 second...";
+            
+            setTimeout(() => {
+                resetAllDots();
+                isOnCooldown = false;
+                sequenceState = 0; // Completely reset state machine
+                updateStatusText();
+            }, 1000); // 1 second reload timer block
+        } else {
+            statusDisplay.innerText = "Main Triggered! Dot dropped. Awaiting intermediate 1/2...";
+            applyCooldown(500); // 500ms core lockout
+        }
     }
 
     function triggerIntermediateReaction() {
@@ -243,28 +260,7 @@
             applyCooldown(300); // 300ms transition lockout
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            processSequenceCompletion();
-        }
-    }
-
-    function processSequenceCompletion() {
-        if (activeDotsCount > 0) {
-            activeDotsCount--;
-            // Remove the rightmost remaining dot item (Indices 4 down to 0)
-            document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
-        }
-
-        // Check if all dots are cleared out completely
-        if (activeDotsCount === 0) {
-            statusDisplay.innerText = "All dots gone! Resetting in 1 second...";
-            isOnCooldown = true;
-            
-            setTimeout(() => {
-                resetAllDots();
-                isOnCooldown = false;
-                updateStatusText();
-            }, 1000); // 1 second reload timer block
-        } else {
+            statusDisplay.innerText = "Armed! Listening for next Main Trigger...";
             applyCooldown(300);
         }
     }
