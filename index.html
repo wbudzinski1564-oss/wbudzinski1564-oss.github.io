@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Sequence Detector - Split Lockouts</title>
+    <title>Sound Sequence Detector - Automated Limits</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -55,6 +55,7 @@
             color: #aaa;
             margin-bottom: 15px;
             min-height: 40px;
+            line-height: 1.4;
         }
 
         .step-tracker {
@@ -80,7 +81,7 @@
         }
 
         .control-group {
-            margin-bottom: 18px;
+            margin-bottom: 5px;
             text-align: left;
         }
 
@@ -95,8 +96,6 @@
             width: 100%;
             accent-color: var(--accent-color);
         }
-        
-        #secondary-slider { accent-color: var(--step-color); }
 
         .value-display {
             float: right;
@@ -114,7 +113,7 @@
             border-radius: 8px;
             cursor: pointer;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 15px;
             box-shadow: 0 4px 12px rgba(0, 173, 181, 0.3);
         }
 
@@ -153,17 +152,7 @@
 
     <div class="control-group">
         <label>Main Trigger Threshold: <span class="value-display" id="threshold-val">50</span></label>
-        <input type="range" id="threshold-slider" min="5" max="100" value="50">
-    </div>
-
-    <div class="control-group">
-        <label style="color: var(--step-color);">Secondary Sound Threshold: <span class="value-display" id="secondary-val">30</span></label>
-        <input type="range" id="secondary-slider" min="5" max="100" value="30">
-    </div>
-
-    <div class="control-group">
-        <label>Secondary Cool-down Delay: <span class="value-display" id="cooldown-val">500ms</span></label>
-        <input type="range" id="cooldown-slider" min="100" max="2000" step="50" value="500">
+        <input type="range" id="threshold-slider" min="10" max="100" value="50">
     </div>
 
     <button id="start-btn">Allow Mic & Start</button>
@@ -187,14 +176,13 @@
     
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
-    const secondarySlider = document.getElementById('secondary-slider');
-    const secondaryVal = document.getElementById('secondary-val');
-    const cooldownSlider = document.getElementById('cooldown-slider');
-    const cooldownVal = document.getElementById('cooldown-val');
 
-    thresholdSlider.oninput = () => thresholdVal.innerText = thresholdSlider.value;
-    secondarySlider.oninput = () => secondaryVal.innerText = secondarySlider.value;
-    cooldownSlider.oninput = () => cooldownVal.innerText = cooldownSlider.value + 'ms';
+    thresholdSlider.oninput = () => {
+        thresholdVal.innerText = thresholdSlider.value;
+        if (isListening && sequenceState === 0) {
+            updateStatusText();
+        }
+    };
 
     startBtn.onclick = async () => {
         if (isListening) return;
@@ -207,7 +195,7 @@
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             source.connect(analyser);
             isListening = true;
-            statusDisplay.innerText = "Status: Listening for Main Trigger...";
+            updateStatusText();
             startBtn.style.display = 'none';
             detectSound();
         } catch (err) {
@@ -215,6 +203,12 @@
             statusDisplay.innerText = "Status: Error";
         }
     };
+
+    function updateStatusText() {
+        const mainThreshold = parseInt(thresholdSlider.value);
+        const secondaryThreshold = Math.round(mainThreshold * 0.5);
+        statusDisplay.innerHTML = `Listening for Main Trigger...<br><small style="color:#888;">(Secondary Target: ${secondaryThreshold})</small>`;
+    }
 
     function detectSound() {
         if (!isListening) return;
@@ -231,7 +225,8 @@
         }
 
         const mainThreshold = parseInt(thresholdSlider.value);
-        const secondaryThreshold = parseInt(secondarySlider.value);
+        // Automatically scales to half of the main setting
+        const secondaryThreshold = Math.round(mainThreshold * 0.5);
 
         if (!isOnCooldown) {
             if (sequenceState === 0 && currentVolume >= mainThreshold) {
@@ -254,8 +249,7 @@
         volumeBar.style.background = 'var(--flash-color)';
         setTimeout(() => document.body.classList.remove('flash'), 150);
         
-        // Fixed 500ms lockout for the main trigger
-        applyCooldown(500);
+        applyCooldown(500); // 500ms hardcoded for main
     }
 
     function triggerIntermediateReaction() {
@@ -268,12 +262,10 @@
             sequenceState = 0;
             dot1.classList.remove('active');
             dot2.classList.remove('active');
-            statusDisplay.innerText = "Armed! Listening for Main Trigger...";
+            updateStatusText();
         }
         
-        // Slider controlled lockout for intermediate triggers
-        const variableDelay = parseInt(cooldownSlider.value);
-        applyCooldown(variableDelay);
+        applyCooldown(300); // 300ms hardcoded for intermediate sounds
     }
 
     function applyCooldown(delayDuration) {
@@ -282,8 +274,8 @@
             if (sequenceState === 2) {
                 dot2.classList.add('active');
             }
-            if (isListening && !isOnCooldown) {
-                if(sequenceState === 0) statusDisplay.innerText = "Listening for Main Trigger...";
+            if (isListening && !isOnCooldown && sequenceState === 0) {
+                updateStatusText();
             }
         }, delayDuration);
     }
