@@ -3,104 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sound Detector - Text Version</title>
+    <title>Sound Sequence Detector - Split Lockouts</title>
     <style>
+        :root {
+            --bg-color: #121212;
+            --card-color: #1e1e1e;
+            --accent-color: #00adb5;
+            --text-color: #eeeeee;
+            --flash-color: #ff2e63;
+            --step-color: #ffaa00;
+        }
+
         body {
-            font-family: sans-serif;
-            background: #111;
-            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            transition: background-color 0.1s ease;
+        }
+
+        body.flash { background-color: var(--flash-color); }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card-color);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
             text-align: center;
         }
-        .box {
-            max-width: 350px;
-            margin: 40px auto;
-            background: #222;
-            padding: 20px;
-            border-radius: 8px;
+
+        h1 { margin-top: 0; font-size: 1.5rem; }
+
+        .counter-box {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin: 10px 0 5px 0;
         }
-        .count { font-size: 4rem; margin: 10px 0; color: #00ffcc; }
-        .status { color: #aaa; margin-bottom: 20px; font-weight: bold;}
-        .row { margin-bottom: 15px; text-align: left; }
-        label { display: block; font-size: 0.8rem; color: #ccc; margin-bottom: 4px;}
-        input { width: 100%; }
-        button { width: 100%; padding: 12px; background: #00ffcc; color: #000; border: none; border-radius: 4px; font-weight: bold; margin-top: 10px;}
+
+        .status {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 15px;
+            min-height: 40px;
+        }
+
+        .step-tracker {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .step-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #333;
+            border: 2px solid #555;
+            transition: all 0.2s ease;
+        }
+
+        .step-dot.active {
+            background: var(--step-color);
+            border-color: var(--step-color);
+            box-shadow: 0 0 8px var(--step-color);
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #bbb;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-color);
+        }
+        
+        #secondary-slider { accent-color: var(--step-color); }
+
+        .value-display {
+            float: right;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(0, 173, 181, 0.3);
+        }
+
+        .meter-container {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        #volume-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-color);
+            transition: width 0.05s ease;
+        }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>Triggers:</h2>
-    <div class="count" id="c">0</div>
-    <div class="status" id="s">Stopped</div>
+<div class="container">
+    <h1>Sequence Detector</h1>
+    <div class="counter-box" id="count-display">0</div>
+    
+    <div class="step-tracker">
+        <div class="step-dot" id="dot1"></div>
+        <div class="step-dot" id="dot2"></div>
+    </div>
+    
+    <div class="status" id="status-display">Status: Stopped</div>
 
-    <div class="row">
-        <label>Main Trigger Level: <span id="m_v">50</span></label>
-        <input type="range" id="m_s" min="5" max="100" value="50">
-    </div>
-    <div class="row">
-        <label>Secondary Level: <span id="sec_v">30</span></label>
-        <input type="range" id="sec_s" min="5" max="100" value="30">
-    </div>
-    <div class="row">
-        <label>Cool-down Lockout: <span id="cd_v">500ms</span></label>
-        <input type="range" id="cd_s" min="100" max="2000" step="50" value="500">
+    <div class="meter-container">
+        <div id="volume-bar"></div>
     </div>
 
-    <button id="btn">Start Audio</button>
+    <div class="control-group">
+        <label>Main Trigger Threshold: <span class="value-display" id="threshold-val">50</span></label>
+        <input type="range" id="threshold-slider" min="5" max="100" value="50">
+    </div>
+
+    <div class="control-group">
+        <label style="color: var(--step-color);">Secondary Sound Threshold: <span class="value-display" id="secondary-val">30</span></label>
+        <input type="range" id="secondary-slider" min="5" max="100" value="30">
+    </div>
+
+    <div class="control-group">
+        <label>Secondary Cool-down Delay: <span class="value-display" id="cooldown-val">500ms</span></label>
+        <input type="range" id="cooldown-slider" min="100" max="2000" step="50" value="500">
+    </div>
+
+    <button id="start-btn">Allow Mic & Start</button>
 </div>
 
 <script>
-    let ctx, cv, arr, active = false, cd = false, total = 0, state = 0;
-    const btn = document.getElementById('btn'), s = document.getElementById('s'), c = document.getElementById('c');
-    const ms = document.getElementById('m_s'), mv = document.getElementById('m_v');
-    const ss = document.getElementById('sec_s'), sv = document.getElementById('sec_v');
-    const cs = document.getElementById('cd_s'), cv_lbl = document.getElementById('cd_v');
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
+    let isListening = false;
+    let isOnCooldown = false;
+    let count = 0;
+    let sequenceState = 0; 
 
-    ms.oninput = () => mv.innerText = ms.value;
-    ss.oninput = () => sv.innerText = ss.value;
-    cs.oninput = () => cv_lbl.innerText = cs.value + 'ms';
+    const startBtn = document.getElementById('start-btn');
+    const statusDisplay = document.getElementById('status-display');
+    const countDisplay = document.getElementById('count-display');
+    const volumeBar = document.getElementById('volume-bar');
+    const dot1 = document.getElementById('dot1');
+    const dot2 = document.getElementById('dot2');
+    
+    const thresholdSlider = document.getElementById('threshold-slider');
+    const thresholdVal = document.getElementById('threshold-val');
+    const secondarySlider = document.getElementById('secondary-slider');
+    const secondaryVal = document.getElementById('secondary-val');
+    const cooldownSlider = document.getElementById('cooldown-slider');
+    const cooldownVal = document.getElementById('cooldown-val');
 
-    btn.onclick = async () => {
-        if (active) return;
+    thresholdSlider.oninput = () => thresholdVal.innerText = thresholdSlider.value;
+    secondarySlider.oninput = () => secondaryVal.innerText = secondarySlider.value;
+    cooldownSlider.oninput = () => cooldownVal.innerText = cooldownSlider.value + 'ms';
+
+    startBtn.onclick = async () => {
+        if (isListening) return;
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const src = ctx.createMediaStreamSource(stream);
-            cv = ctx.createAnalyser();
-            cv.fftSize = 256;
-            arr = new Uint8Array(cv.frequencyBinCount);
-            src.connect(cv);
-            active = true;
-            s.innerText = "Waiting for Main Spike...";
-            btn.style.display = 'none';
-            loop();
-        } catch (e) { alert("Mic access required."); }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256; 
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            source.connect(analyser);
+            isListening = true;
+            statusDisplay.innerText = "Status: Listening for Main Trigger...";
+            startBtn.style.display = 'none';
+            detectSound();
+        } catch (err) {
+            alert("Microphone access denied.");
+            statusDisplay.innerText = "Status: Error";
+        }
     };
 
-    function loop() {
-        if (!active) return;
-        cv.getByteFrequencyData(arr);
-        let max = 0;
-        for (let i = 0; i < arr.length; i++) { if (arr[i] > max) max = arr[i]; }
-        const vol = Math.round((max / 255) * 100);
+    function detectSound() {
+        if (!isListening) return;
+        analyser.getByteFrequencyData(dataArray);
+        let maxVolume = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > maxVolume) maxVolume = dataArray[i];
+        }
+        const currentVolume = Math.round((maxVolume / 255) * 100);
+        
+        if (!isOnCooldown) {
+            volumeBar.style.width = currentVolume + '%';
+            volumeBar.style.background = (sequenceState === 0) ? 'var(--accent-color)' : 'var(--step-color)';
+        }
 
-        if (!cd) {
-            if (state === 0 && vol >= parseInt(ms.value)) {
-                cd = true; total++; c.innerText = total; state = 1;
-                s.innerText = "Triggered! Need 2 secondary hits.";
-                setTimeout(() => { cd = false; }, parseInt(cs.value));
-            } else if (state === 1 && vol >= parseInt(ss.value)) {
-                cd = true; state = 2;
-                s.innerText = "Hit 1/2. Need 1 more.";
-                setTimeout(() => { cd = false; }, parseInt(cs.value));
-            } else if (state === 2 && vol >= parseInt(ss.value)) {
-                cd = true; state = 0;
-                s.innerText = "Sequence complete. Waiting for Main...";
-                setTimeout(() => { cd = false; }, parseInt(cs.value));
+        const mainThreshold = parseInt(thresholdSlider.value);
+        const secondaryThreshold = parseInt(secondarySlider.value);
+
+        if (!isOnCooldown) {
+            if (sequenceState === 0 && currentVolume >= mainThreshold) {
+                triggerMainReaction();
+            } else if (sequenceState > 0 && currentVolume >= secondaryThreshold) {
+                triggerIntermediateReaction();
             }
         }
-        requestAnimationFrame(loop);
+        requestAnimationFrame(detectSound);
+    }
+
+    function triggerMainReaction() {
+        isOnCooldown = true;
+        count++;
+        countDisplay.innerText = count;
+        sequenceState = 1;
+        statusDisplay.innerText = "Main triggered! Need 2 secondary sounds.";
+        document.body.classList.add('flash');
+        volumeBar.style.width = '100%';
+        volumeBar.style.background = 'var(--flash-color)';
+        setTimeout(() => document.body.classList.remove('flash'), 150);
+        
+        // Fixed 500ms lockout for the main trigger
+        applyCooldown(500);
+    }
+
+    function triggerIntermediateReaction() {
+        isOnCooldown = true;
+        if (sequenceState === 1) {
+            sequenceState = 2;
+            dot1.classList.add('active');
+            statusDisplay.innerText = "Sound 1/2 detected. Need 1 more.";
+        } else if (sequenceState === 2) {
+            sequenceState = 0;
+            dot1.classList.remove('active');
+            dot2.classList.remove('active');
+            statusDisplay.innerText = "Armed! Listening for Main Trigger...";
+        }
+        
+        // Slider controlled lockout for intermediate triggers
+        const variableDelay = parseInt(cooldownSlider.value);
+        applyCooldown(variableDelay);
+    }
+
+    function applyCooldown(delayDuration) {
+        setTimeout(() => {
+            isOnCooldown = false;
+            if (sequenceState === 2) {
+                dot2.classList.add('active');
+            }
+            if (isListening && !isOnCooldown) {
+                if(sequenceState === 0) statusDisplay.innerText = "Listening for Main Trigger...";
+            }
+        }, delayDuration);
     }
 </script>
 </body>
