@@ -21,63 +21,54 @@
             margin: 0;
             padding: 0;
             width: 100vw;
-            height: 100dvh; /* Dynamic viewport height protects against Safari bars */
+            height: 100dvh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            /* iOS Safe Area Insets to push content away from rounded corners and home indicator */
             padding-left: env(safe-area-inset-left, 0px);
             padding-right: env(safe-area-inset-right, 0px);
         }
 
-        /* Top control panel containing all 3 sliders */
+        /* Top control panel stacked vertically using full layout width */
         .top-bar {
             width: 100%;
-            padding: 8px 20px;
-            padding-top: calc(8px + env(safe-area-inset-top, 0px)); /* Safe padding for Safari top notch */
+            padding: 12px 20px;
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
             background: rgba(0, 0, 0, 0.04);
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            gap: 15px;
+            flex-direction: column;
+            gap: 12px;
             z-index: 10;
         }
 
         .slider-group {
             display: flex;
-            flex-direction: row;
-            gap: 20px;
-            flex-grow: 1;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
         }
 
         .slider-container {
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex: 1;
+            gap: 15px;
+            width: 100%;
         }
 
         label {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 600;
             white-space: nowrap;
             color: #333;
+            min-width: 130px; /* Aligns all slider bars starting from the same left position */
         }
 
         input[type="range"] {
-            width: 100%;
+            flex-grow: 1;
             accent-color: #000000;
             cursor: pointer;
-        }
-
-        .status-txt {
-            font-size: 0.75rem;
-            color: #666;
-            white-space: nowrap;
-            min-width: 180px;
-            text-align: right;
+            height: 24px; /* Easier to grab on mobile screens */
         }
 
         /* Main Canvas area where dots reside */
@@ -104,7 +95,6 @@
             background-color: #000000;
             border-radius: 50%;
             opacity: 1;
-            /* Transition removed to ensure instant disappearance */
         }
 
         .black-dot.hidden {
@@ -166,10 +156,9 @@
         </div>
         <div class="slider-container">
             <label>Freq Cutoff: <span id="freq-val">1000</span>Hz</label>
-            <input type="range" id="freq-slider" min="100" max="4000" step="50" value="1000">
+            <input type="range" id="freq-slider" min="100" max="10000" step="100" value="1000">
         </div>
     </div>
-    <div class="status-txt" id="status-display">Status: Ready</div>
 </div>
 
 <div class="canvas-area">
@@ -197,7 +186,6 @@
 
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('start-btn');
-    const statusDisplay = document.getElementById('status-display');
     
     const thresholdSlider = document.getElementById('threshold-slider');
     const thresholdVal = document.getElementById('threshold-val');
@@ -207,8 +195,8 @@
     const freqVal = document.getElementById('freq-val');
 
     // Sync Slider Inputs Live
-    thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; updateStatusText(); };
-    secondarySlider.oninput = () => { secondaryVal.innerText = secondarySlider.value; updateStatusText(); };
+    thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; };
+    secondarySlider.oninput = () => { secondaryVal.innerText = secondarySlider.value; };
     freqSlider.oninput = () => {
         freqVal.innerText = freqSlider.value;
         if (biquadFilter) {
@@ -243,23 +231,12 @@
             source.connect(rawAnalyser);        // Raw Audio Path
             
             isListening = true;
-            updateStatusText();
             overlay.style.display = 'none'; 
             detectSound();
         } catch (err) {
             alert("Microphone access is required.");
-            statusDisplay.innerText = "Error: No Mic Access";
         }
     };
-
-    function updateStatusText() {
-        if (isResettingDots) return;
-        if (sequenceState === 0) {
-            statusDisplay.innerText = `Status: Waiting for Main (> ${thresholdSlider.value}%)`;
-        } else {
-            statusDisplay.innerText = `Status: Need Sec Spike (${sequenceState}/2) (> ${secondarySlider.value}%)`;
-        }
-    }
 
     function getMaxVolume(analyserNode, bufferArray) {
         analyserNode.getByteFrequencyData(bufferArray);
@@ -305,15 +282,11 @@
 
         if (activeDotsCount === 0 && !isResettingDots) {
             isResettingDots = true;
-            statusDisplay.innerText = "All dots gone! Resetting in 1s...";
 
             setTimeout(() => {
                 resetAllDots();
                 isResettingDots = false;
-                updateStatusText();
             }, 1000);
-        } else {
-            updateStatusText();
         }
 
         applyCooldown(500); // 500ms main lockout
@@ -323,11 +296,9 @@
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            updateStatusText();
             applyCooldown(300); // 300ms intermediate lockout
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            updateStatusText();
             applyCooldown(300); // 300ms intermediate lockout
         }
     }
@@ -342,7 +313,6 @@
     function applyCooldown(delayDuration) {
         setTimeout(() => {
             isOnCooldown = false;
-            updateStatusText();
         }, delayDuration);
     }
 </script>
