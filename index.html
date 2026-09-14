@@ -152,7 +152,7 @@
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
     <p class="hint">Requires microphone access for sound detection.</p>
-    <div class="iteration-badge">Iteration: 18</div>
+    <div class="iteration-badge">Iteration: 19</div>
 </div>
 
 <!-- Landscape Interface Deck -->
@@ -164,7 +164,6 @@
         </div>
         <div class="slider-container">
             <label>Threshold Margin: <span id="margin-val">80</span>%</label>
-            <!-- Default changed to 80 -->
             <input type="range" id="margin-slider" min="50" max="100" step="1" value="80">
         </div>
         <div class="slider-container">
@@ -186,7 +185,7 @@
 <script>
     let audioContext = null;
     let mainAnalyser = null;
-    let secAnalyser = null; // Renamed for filter flow clarity
+    let secAnalyser = null; 
     let biquadFilter = null;
     let dataArrayMain = null;
     let dataArraySec = null;
@@ -224,7 +223,6 @@
             recalculateAdaptiveThreshold();
         }
     };
-
     startBtn.onclick = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -352,10 +350,10 @@
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            applyCooldown(300); 
+            applyCooldown(200); // Reduced to 200ms intermediate lockout
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            applyCooldown(300); 
+            applyCooldown(200); // Reduced to 200ms intermediate lockout
         }
     }
 
