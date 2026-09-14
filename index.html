@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Landscape Sequence Dot Controller with Filter</title>
+    <title>Landscape Sequence Dot Controller</title>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -61,14 +61,14 @@
             font-weight: 600;
             white-space: nowrap;
             color: #333;
-            min-width: 130px; /* Aligns all slider bars starting from the same left position */
+            min-width: 130px;
         }
 
         input[type="range"] {
             flex-grow: 1;
             accent-color: #000000;
             cursor: pointer;
-            height: 24px; /* Easier to grab on mobile screens */
+            height: 24px;
         }
 
         /* Main Canvas area where dots reside */
@@ -137,13 +137,11 @@
 </head>
 <body>
 
-<!-- Start Screen for Mic Validation -->
 <div class="start-overlay" id="overlay">
     <button class="start-btn" id="start-btn">Start App (Turn Phone Sideways)</button>
-    <p class="hint">Requires microphone access for advanced noise detection.</p>
+    <p class="hint">Requires microphone access for sound detection.</p>
 </div>
 
-<!-- Landscape Interface Slider Deck -->
 <div class="top-bar">
     <div class="slider-group">
         <div class="slider-container">
@@ -194,12 +192,11 @@
     const freqSlider = document.getElementById('freq-slider');
     const freqVal = document.getElementById('freq-val');
 
-    // Sync Slider Inputs Live
     thresholdSlider.oninput = () => { thresholdVal.innerText = thresholdSlider.value; };
     secondarySlider.oninput = () => { secondaryVal.innerText = secondarySlider.value; };
     freqSlider.oninput = () => {
         freqVal.innerText = freqSlider.value;
-        if (biquadFilter) {
+        if (biquadFilter && audioContext) {
             biquadFilter.frequency.setValueAtTime(parseFloat(freqSlider.value), audioContext.currentTime);
         }
     };
@@ -210,25 +207,23 @@
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const source = audioContext.createMediaStreamSource(stream);
             
-            // 1. Setup High-Pass Audio Filter for the Main Sound routing
+            // 1. Setup Filtered Pathway (Main)
             biquadFilter = audioContext.createBiquadFilter();
             biquadFilter.type = "highpass";
             biquadFilter.frequency.setValueAtTime(parseFloat(freqSlider.value), audioContext.currentTime);
             
-            // 2. Setup Analyser Node for Filtered Audio (Main Sound)
             mainAnalyser = audioContext.createAnalyser();
             mainAnalyser.fftSize = 256;
             dataArrayMain = new Uint8Array(mainAnalyser.frequencyBinCount);
             
-            // 3. Setup Analyser Node for Raw Audio (Secondary Sounds skip the filter)
+            // 2. Setup Unfiltered Pathway (Secondary)
             rawAnalyser = audioContext.createAnalyser();
             rawAnalyser.fftSize = 256;
             dataArraySec = new Uint8Array(rawAnalyser.frequencyBinCount);
             
-            // Connect pathways
             source.connect(biquadFilter);
-            biquadFilter.connect(mainAnalyser); // Filtered Path
-            source.connect(rawAnalyser);        // Raw Audio Path
+            biquadFilter.connect(mainAnalyser);
+            source.connect(rawAnalyser);
             
             isListening = true;
             overlay.style.display = 'none'; 
@@ -238,6 +233,7 @@
         }
     };
 
+    // Reverted back to the original peak frequency calculation from version 1
     function getMaxVolume(analyserNode, bufferArray) {
         analyserNode.getByteFrequencyData(bufferArray);
         let maxVolume = 0;
@@ -252,14 +248,12 @@
 
         if (!isOnCooldown) {
             if (sequenceState === 0) {
-                // Read from FILTERED audio pathway for Main Trigger
                 const filteredVolume = getMaxVolume(mainAnalyser, dataArrayMain);
                 const mainThreshold = parseInt(thresholdSlider.value);
                 if (filteredVolume >= mainThreshold) {
                     triggerMainReaction();
                 }
             } else {
-                // Read from RAW audio pathway for intermediate steps
                 const rawVolume = getMaxVolume(rawAnalyser, dataArraySec);
                 const secondaryThreshold = parseInt(secondarySlider.value);
                 if (rawVolume >= secondaryThreshold) {
@@ -274,7 +268,6 @@
         isOnCooldown = true;
         sequenceState = 1;
         
-        // Remove dot instantly when main trigger occurs
         if (activeDotsCount > 0) {
             activeDotsCount--;
             document.getElementById(`dot-${activeDotsCount}`).classList.add('hidden');
@@ -282,24 +275,23 @@
 
         if (activeDotsCount === 0 && !isResettingDots) {
             isResettingDots = true;
-
             setTimeout(() => {
                 resetAllDots();
                 isResettingDots = false;
             }, 1000);
         }
 
-        applyCooldown(500); // 500ms main lockout
+        applyCooldown(500); 
     }
 
     function triggerIntermediateReaction() {
         isOnCooldown = true;
         if (sequenceState === 1) {
             sequenceState = 2;
-            applyCooldown(300); // 300ms intermediate lockout
+            applyCooldown(300); 
         } else if (sequenceState === 2) {
             sequenceState = 0;
-            applyCooldown(300); // 300ms intermediate lockout
+            applyCooldown(300); 
         }
     }
 
